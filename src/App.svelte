@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { sb } from './engine/supabase.js';
+  import { findMyMostRecentRoomCode } from './engine/room.js';
   import NameGate from './lib/NameGate.svelte';
   import Landing from './lib/Landing.svelte';
   import Room from './routes/Room.svelte';
@@ -19,9 +20,19 @@
     roomCode = code;
   }
 
-  function handleReady(u, p) {
+  // Auto-return to the space you already belong to, instead of always
+  // dropping back on the landing/code-entry screen. The code becomes an
+  // invite/recovery mechanism, not something you re-type every session.
+  async function tryAutoRejoin(userId) {
+    if (roomCode) return; // hash already points somewhere specific
+    const code = await findMyMostRecentRoomCode(userId);
+    if (code) goToRoom(code);
+  }
+
+  async function handleReady(u, p) {
     user = u;
     profile = p;
+    await tryAutoRejoin(u.id);
   }
 
   onMount(async () => {
@@ -31,7 +42,10 @@
     const { data: { user: existing } } = await sb.auth.getUser();
     if (existing) {
       const { data: prof } = await sb.from('profiles').select('*').eq('id', existing.id).maybeSingle();
-      if (prof) { user = existing; profile = prof; }
+      if (prof) {
+        user = existing; profile = prof;
+        await tryAutoRejoin(existing.id);
+      }
     }
   });
 </script>

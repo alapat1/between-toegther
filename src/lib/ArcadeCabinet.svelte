@@ -1,8 +1,9 @@
 <script>
   // flows.md §2.8 — every game's setup screen. Rounds dialer + optional heat
-  // dial (host-owned single needle per this session's 2026-07-09 decision,
-  // no vote) + presence-gated START (no holds — both players just need to be
-  // on the screen).
+  // dial. Since the 2026-07-10 rethink, whoever configures this and taps
+  // the button is sending an invite, not starting the game outright — the
+  // other partner accepts or declines (see Room.svelte's invite flow).
+  // Still presence-gated: no point inviting an empty room.
   import PlateButton from './PlateButton.svelte';
 
   export let title;
@@ -11,15 +12,15 @@
   export let roundPresets = [6, 12, 20];
   export let showHeatDial = false;
   export let partnerPresent = false;
-  export let onStart; // (rounds, heat) => void
+  export let onStart; // (rounds, heat) => void — sends an invite, doesn't start directly
 
   let rounds = roundPresets[1] ?? roundPresets[0];
   let heat = 1; // 0=casual .. 3=unfiltered
   const heatLabels = ['casual', 'playful', 'romantic', 'unfiltered'];
-  let iAmReady = false;
+  let sent = false;
 
-  function readyUp() {
-    iAmReady = true;
+  function sendInvite() {
+    sent = true;
     if (partnerPresent) onStart(rounds, heatLabels[heat]);
   }
 </script>
@@ -35,19 +36,19 @@
 
   {#if showHeatDial}
     <div class="dial-row">
-      <label class="dial-label" for="heat">heat (yours — partner's is a readout only)</label>
+      <label class="dial-label" for="heat">heat</label>
       <input id="heat" type="range" min="0" max="3" step="1" bind:value={heat} />
       <span class="dial-readout">{heatLabels[heat]}</span>
     </div>
   {/if}
 
   <div class="ready-lights">
-    <span class="light" class:on={iAmReady}></span>
+    <span class="light" class:on={sent}></span>
     <span class="light" class:on={partnerPresent}></span>
   </div>
 
-  <PlateButton accent={partnerPresent ? accent : 'var(--surface-2)'} onAccent={partnerPresent ? onAccent : 'var(--text-soft)'} disabled={!partnerPresent} on:click={readyUp}>
-    {partnerPresent ? 'start' : "waiting for partner…"}
+  <PlateButton accent={partnerPresent ? accent : 'var(--surface-2)'} onAccent={partnerPresent ? onAccent : 'var(--text-soft)'} disabled={!partnerPresent} on:click={sendInvite}>
+    {partnerPresent ? 'invite them' : "waiting for partner…"}
   </PlateButton>
 </div>
 

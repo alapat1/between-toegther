@@ -84,6 +84,30 @@ export function selfOf(members, userId) {
 }
 
 /**
+ * "Codes are permanent identity" (roadmap.md) wasn't actually reflected in
+ * the UI — every launch dropped you on the landing screen regardless of
+ * whether you already belonged to a space. This makes the room the thing
+ * you auto-return to, and demotes the code to an invite/recovery mechanism.
+ * Picks the most recently joined room if someone somehow belongs to more
+ * than one (multi-space support is a later roadmap item, not this pass).
+ */
+export async function findMyMostRecentRoomCode(userId) {
+  const { data } = await sb
+    .from('room_members')
+    .select('joined_at, rooms(code)')
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.rooms?.code || null;
+}
+
+export async function renameRoom(roomId, displayName) {
+  const { error } = await sb.from('rooms').update({ display_name: displayName }).eq('id', roomId);
+  return { ok: !error, error };
+}
+
+/**
  * Realtime membership changes for a room — the fix for the "host still says
  * waiting for partner even after they joined" bug. Room.svelte previously
  * fetched room_members once on mount and never again, so a partner joining
