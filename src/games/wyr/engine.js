@@ -50,7 +50,13 @@ export function bothChosen(moves, round, userId, partnerId) {
  * Smash's tapReady already does this check inside the guardedWrite.)
  */
 export async function markReadyForNext(game, userId, partnerId, pipToAppend) {
+  const expectedRound = game.state.round;
   return guardedGameWrite(game.id, (current) => {
+    // Double-tap guard: if the round already advanced (or this user already
+    // confirmed), abort — otherwise a second tap would mark the user ready
+    // in the NEXT round and eat their partner's reveal.
+    if (current.state.round !== expectedRound) return null;
+    if (current.state.readyForNext?.[userId]) return null;
     const ready = { ...(current.state.readyForNext || {}), [userId]: true };
     const bothNowReady = !!(ready[userId] && ready[partnerId]);
 

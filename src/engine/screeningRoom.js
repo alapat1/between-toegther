@@ -44,6 +44,41 @@ export async function swipe(roomId, userId, candidate, liked, partnerId) {
   return { ok: true, matched: false };
 }
 
+/**
+ * Undo a just-made swipe (the 3s undo pill). Deletes the swipe row so the
+ * title re-enters both partners' decks; if the swipe had completed a mutual
+ * match, also removes the auto-added default-board item so the shared list
+ * isn't polluted by an accidental like.
+ */
+export async function undoSwipe(roomId, userId, candidate, hadMatched) {
+  const { error } = await sb
+    .from('sr_swipes')
+    .delete()
+    .eq('room_id', roomId)
+    .eq('user_id', userId)
+    .eq('source', candidate.source)
+    .eq('source_id', candidate.sourceId);
+  if (error) return { ok: false, error };
+
+  if (hadMatched) {
+    const { data: board } = await sb
+      .from('sr_boards')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('is_default', true)
+      .maybeSingle();
+    if (board) {
+      await sb
+        .from('sr_board_items')
+        .delete()
+        .eq('board_id', board.id)
+        .eq('source', candidate.source)
+        .eq('source_id', candidate.sourceId);
+    }
+  }
+  return { ok: true };
+}
+
 export async function fetchSwipedIds(roomId, userId) {
   const { data } = await sb.from('sr_swipes').select('source, source_id').eq('room_id', roomId).eq('user_id', userId);
   return new Set((data || []).map((r) => `${r.source}:${r.source_id}`));

@@ -1,5 +1,15 @@
 /* Locked 2026-07-09 — design-bank.md §3 (palette), §2 (type), §10.4 (dark-only) */
 
+/* Reduced motion (settings toggle / OS preference): collapse all animation
+   per the motion doctrine — ambient stops, events become fades. */
+body.reduced-motion *,
+body.reduced-motion *::before,
+body.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
 :root {
   /* canvas */
   --bg: #100D0C;

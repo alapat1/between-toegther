@@ -5,6 +5,15 @@
   import NameGate from './lib/NameGate.svelte';
   import Landing from './lib/Landing.svelte';
   import Room from './routes/Room.svelte';
+  import Toast from './lib/Toast.svelte';
+  import ConfirmDialog from './lib/ConfirmDialog.svelte';
+  import { reducedMotion } from './engine/prefs.js';
+
+  // Reduced motion: settings toggle (defaults to the OS preference) collapses
+  // animations app-wide via a body class the token sheet can key off.
+  $: if (typeof document !== 'undefined') {
+    document.body.classList.toggle('reduced-motion', $reducedMotion);
+  }
 
   let user = null;
   let profile = null;
@@ -64,11 +73,15 @@
   {/if}
 </main>
 
+<Toast />
+<ConfirmDialog />
+
 <style>
   main {
     max-width: 480px;
     margin: 0 auto;
     min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   header {
     padding: 32px 24px 0;

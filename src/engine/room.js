@@ -102,6 +102,76 @@ export async function findMyMostRecentRoomCode(userId) {
   return data?.rooms?.code || null;
 }
 
+export async function leaveRoom(roomId, userId) {
+  const { error } = await sb
+    .from('room_members')
+    .delete()
+    .eq('room_id', roomId)
+    .eq('user_id', userId);
+  return { ok: !error, error };
+}
+
+/**
+ * Live presence for a room — the real "are they here" signal, distinct from
+ * "has a room_members row" (which is permanent membership). Tracks a status
+ * string ('lobby' | 'game' | 'screening') so waiting screens can say "she's
+ * in the screening room" instead of a generic dot. Also carries the nudge
+ * broadcast — one tap that buzzes the partner's phone.
+ *
+ * Returns { setStatus, nudge, unsubscribe }. onPeers receives a map of
+ * userId -> status for everyone currently present (including self).
+ */
+export function joinPresence(roomId, userId, initialStatus, onPeers, onNudge) {
+  let channel = null;
+  let currentStatus = initialStatus;
+
+  function subscribe() {
+    channel = sb.channel(`presence:${roomId}`, { config: { presence: { key: userId } } });
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const peers = {};
+        for (const [key, metas] of Object.entries(state)) {
+          peers[key] = metas[0]?.status || 'lobby';
+        }
+        onPeers(peers);
+      })
+      .on('broadcast', { event: 'nudge' }, ({ payload }) => {
+        if (payload?.to === userId && onNudge) onNudge(payload);
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') channel.track({ status: currentStatus });
+      });
+  }
+
+  function teardownAndResubscribe() {
+    if (channel) sb.removeChannel(channel);
+    subscribe();
+  }
+
+  subscribe();
+  const visibilityHandler = () => {
+    if (document.visibilityState === 'visible') teardownAndResubscribe();
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
+  window.addEventListener('online', teardownAndResubscribe);
+
+  return {
+    setStatus(status) {
+      currentStatus = status;
+      if (channel) channel.track({ status });
+    },
+    nudge(partnerId) {
+      if (channel) channel.send({ type: 'broadcast', event: 'nudge', payload: { to: partnerId, from: userId } });
+    },
+    unsubscribe() {
+      document.removeEventListener('visibilitychange', visibilityHandler);
+      window.removeEventListener('online', teardownAndResubscribe);
+      if (channel) sb.removeChannel(channel);
+    }
+  };
+}
+
 export async function renameRoom(roomId, displayName) {
   const { error } = await sb.from('rooms').update({ display_name: displayName }).eq('id', roomId);
   return { ok: !error, error };

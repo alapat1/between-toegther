@@ -4,6 +4,8 @@
   import ArcadeCabinet from './ArcadeCabinet.svelte';
 
   export let partnerPresent;
+  export let roomCode = '';
+  export let onCopyInvite = () => {};
   export let onStartWYR;   // (rounds) => void — actually sends an invite now, see Room.svelte
   export let onStartTOD;   // (rounds, theme) => void
   export let onStartSpin;  // (rounds) => void
@@ -17,6 +19,16 @@
 </script>
 
 <div class="lobby">
+  {#if !partnerPresent}
+    <div class="solo-card">
+      <p class="solo-title">it's just you here so far</p>
+      <p class="solo-sub">this space comes alive when they join — send them the code.</p>
+      <div class="solo-row">
+        <span class="solo-code">{roomCode}</span>
+        <button class="solo-copy" on:click={onCopyInvite}>copy invite link</button>
+      </div>
+    </div>
+  {/if}
   {#if !picked}
     <p class="hint">tonight, what are we playing?</p>
     <div class="hub">
@@ -53,4 +65,15 @@
     cursor: pointer;
   }
   .orbit-tile.wide { grid-column: 1 / -1; }
+  .solo-card { background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .solo-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+  .solo-sub { color: var(--text-soft); font-size: 13px; }
+  .solo-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  .solo-code { font-family: var(--font-mono); font-size: 20px; letter-spacing: 0.2em; }
+  .solo-copy {
+    background: var(--accent-blue-atoll); color: var(--on-accent-blue-atoll);
+    border: none; font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; font-size: 11px; padding: 10px 14px;
+    cursor: pointer; box-shadow: 4px 5px 0 0 #000;
+  }
 </style>

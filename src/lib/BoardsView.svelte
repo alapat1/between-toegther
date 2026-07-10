@@ -41,6 +41,12 @@
   </div>
 
   {#if view === 'boards'}
+    {#if !boards.length}
+      <div class="empty">
+        <p class="empty-title">no boards yet</p>
+        <p class="empty-sub">like something in the deck — the moment you both like the same title, "our list" appears here on its own. tap the save icon on any card to start a board of your own.</p>
+      </div>
+    {:else}
     <div class="board-chip-row">
       {#each boards as b}
         <button class="board-chip" class:on={selectedBoard?.id === b.id} on:click={() => (selectedBoard = b)}>{b.name}</button>
@@ -62,8 +68,12 @@
         {/each}
       </div>
     {/if}
+    {/if}
   {:else if !watched.length}
-    <p class="status">nothing marked watched yet.</p>
+    <div class="empty">
+      <p class="empty-title">nothing watched together yet</p>
+      <p class="empty-sub">tap the check on any title once you've seen it — your shared history collects here.</p>
+    </div>
   {:else}
     <div class="grid">
       {#each watched as w}
@@ -89,6 +99,9 @@
   .board-chip { background: var(--surface-2); border: none; color: var(--text); font-family: var(--font-body); font-size: 12px; padding: 6px 12px; cursor: pointer; }
   .board-chip.on { background: var(--accent-fruit-dove); color: var(--on-accent-fruit-dove); }
   .status { color: var(--text-soft); font-family: var(--font-body); font-size: 14px; }
+  .empty { background: var(--surface); padding: 24px; display: flex; flex-direction: column; gap: 8px; }
+  .empty-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+  .empty-sub { color: var(--text-soft); font-size: 13px; line-height: 1.5; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .item { background: var(--surface); }
   .poster { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; }

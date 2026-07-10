@@ -23,6 +23,9 @@ export function initialState(totalRounds) {
 
 export async function tapReady(game, userId, partnerId) {
   return guardedGameWrite(game.id, (current) => {
+    // Only the ready gate accepts ready taps; a duplicate tap no-ops.
+    if (current.state.phase !== 'ready_gate') return null;
+    if (current.state.readyTaps?.[userId]) return null;
     const readyTaps = { ...current.state.readyTaps, [userId]: true };
     const bothReady = readyTaps[userId] && readyTaps[partnerId];
     if (!bothReady) return { state: { ...current.state, readyTaps } };
@@ -69,6 +72,9 @@ export async function beginPlaying(game) {
 
 export async function endRound(game) {
   return guardedGameWrite(game.id, (current) => {
+    // Both clients race to close the round — only the playing phase can
+    // close, so the loser of the race aborts instead of double-scoring.
+    if (current.state.phase !== 'playing') return null;
     const scores = { ...current.state.scores };
     for (const [uid, count] of Object.entries(current.state.taps || {})) {
       scores[uid] = (scores[uid] || 0) + count;

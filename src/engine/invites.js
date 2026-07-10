@@ -5,21 +5,41 @@
 // just picks up the first invite as an incoming one instead of racing.
 import { sb } from './supabase.js';
 
-export async function sendInvite(roomId, userId, gameType, rounds, config = {}) {
-  const { data, error } = await sb
-    .from('game_invites')
-    .insert({ room_id: roomId, game_type: gameType, rounds, config, invited_by: userId })
-    .select()
-    .single();
+// Invites go stale fast — a 3-day-old "want to play?" greeting someone at
+// login is worse than none. Expired pendings also block the partial unique
+// index (one pending per room), so they must be cleared, not just hidden.
+export const INVITE_TTL_MS = 15 * 60 * 1000;
 
-  if (error && error.code === '23505') {
-    // Partner already sent one — surface it as the current invite rather
-    // than erroring, so the UI can show it as incoming.
+function isExpired(invite) {
+  return Date.now() - new Date(invite.created_at).getTime() > INVITE_TTL_MS;
+}
+
+async function expireInvite(inviteId) {
+  await sb
+    .from('game_invites')
+    .update({ status: 'declined', responded_at: new Date().toISOString() })
+    .eq('id', inviteId)
+    .eq('status', 'pending');
+}
+
+export async function sendInvite(roomId, userId, gameType, rounds, config = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await sb
+      .from('game_invites')
+      .insert({ room_id: roomId, game_type: gameType, rounds, config, invited_by: userId })
+      .select()
+      .single();
+
+    if (!error) return { ok: true, invite: data };
+    if (error.code !== '23505') return { ok: false, error };
+
+    // A pending invite already exists. If it's stale, expire it and retry
+    // the insert once; otherwise surface it as the current (crossed) invite.
     const existing = await fetchActiveInvite(roomId);
-    return { ok: true, crossed: true, invite: existing };
+    if (existing) return { ok: true, crossed: true, invite: existing };
+    // fetchActiveInvite expired a stale one — loop retries the insert.
   }
-  if (error) return { ok: false, error };
-  return { ok: true, invite: data };
+  return { ok: false, error: new Error('invite-collision') };
 }
 
 export async function respondInvite(inviteId, accept) {
@@ -42,6 +62,10 @@ export async function fetchActiveInvite(roomId) {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (data && isExpired(data)) {
+    await expireInvite(data.id);
+    return null;
+  }
   return data;
 }
 

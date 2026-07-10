@@ -23,7 +23,10 @@ export async function pickChoice(game, choice) {
   const { theme, usedPrompts } = game.state;
   const tier = defaultTierFor(theme);
   const { id, text } = await fetchTodPrompt(theme, tier, choice, usedPrompts || []);
-  return guardedGameWrite(game.id, (current) => ({
+  return guardedGameWrite(game.id, (current) => {
+    // Double-tap guard: only the picking phase can transition to a prompt.
+    if (current.state.phase !== 'chooser_picks') return null;
+    return {
     phase: 'prompt_active',
     state: {
       ...current.state,
@@ -35,23 +38,33 @@ export async function pickChoice(game, choice) {
       usedPrompts: id ? [...(current.state.usedPrompts || []), id] : (current.state.usedPrompts || []),
       phase: 'prompt_active'
     }
-  }));
+  };
+  });
 }
 
 // Truth ends the round the moment the performer taps done — nothing to
 // contest. Dare moves to judging and HOLDS there until the judge acts.
+// All three round-closers below abort unless the game is still in the
+// phase they close — a double tap can't advance two rounds.
 export async function done(game, userId) {
   if (game.state.choice === 'truth') {
-    return advanceRound(game, game.state);
+    return guardedGameWrite(game.id, (current) => {
+      if (current.state.phase !== 'prompt_active') return null;
+      return advanceRoundState(current.state);
+    });
   }
-  return guardedGameWrite(game.id, (current) => ({
-    phase: 'judging',
-    state: { ...current.state, completedBy: userId, phase: 'judging' }
-  }));
+  return guardedGameWrite(game.id, (current) => {
+    if (current.state.phase !== 'prompt_active') return null;
+    return {
+      phase: 'judging',
+      state: { ...current.state, completedBy: userId, phase: 'judging' }
+    };
+  });
 }
 
 export async function skip(game, userId) {
   return guardedGameWrite(game.id, (current) => {
+    if (current.state.phase !== 'prompt_active') return null;
     const skips = { ...current.state.skips, [userId]: (current.state.skips[userId] || 0) + 1 };
     return advanceRoundState({ ...current.state, skips });
   });
@@ -61,6 +74,7 @@ export async function skip(game, userId) {
 // Nothing else advances the round; this IS the gate (flows.md §2.1).
 export async function judgeConfirm(game, completed) {
   return guardedGameWrite(game.id, (current) => {
+    if (current.state.phase !== 'judging') return null;
     const skips = { ...current.state.skips };
     if (!completed) skips[current.state.currentTurn] = (skips[current.state.currentTurn] || 0) + 1;
     return advanceRoundState({ ...current.state, skips });
@@ -86,10 +100,6 @@ function advanceRoundState(state) {
       completedBy: null
     }
   };
-}
-
-async function advanceRound(game, state) {
-  return guardedGameWrite(game.id, () => advanceRoundState(state));
 }
 
 function defaultTierFor(theme) {

@@ -40,7 +40,11 @@ export async function spin(game) {
   const idx = weightedPick(game.state.round, game.state.total_rounds);
   const segment = SPIN_SEGMENTS[idx];
   const { id, text } = await fetchTodPrompt('casual', segment.tier, segment.type, game.state.usedPrompts || []);
-  return guardedGameWrite(game.id, (current) => ({
+  return guardedGameWrite(game.id, (current) => {
+    // Double-tap guard: only a game still on the wheel can transition to
+    // prompt — a second rapid spin() aborts instead of overwriting.
+    if (current.state.phase !== 'spinning') return null;
+    return {
     phase: 'prompt',
     state: {
       ...current.state,
@@ -56,20 +60,25 @@ export async function spin(game) {
       usedPrompts: id ? [...(current.state.usedPrompts || []), id] : (current.state.usedPrompts || []),
       spinner_done: false
     }
-  }));
+  };
+  });
 }
 
 export async function markSpinnerDone(game) {
   // Spinner's "i did it" never awards points itself — only the judge's
   // verdict does. (This is the exact bug fixed 2026-07-08: it used to jump
   // straight to a scored result and race the judge.)
-  return guardedGameWrite(game.id, (current) => ({
-    state: { ...current.state, spinner_done: true }
-  }));
+  return guardedGameWrite(game.id, (current) => {
+    if (current.state.phase !== 'prompt' || current.state.spinner_done) return null;
+    return { state: { ...current.state, spinner_done: true } };
+  });
 }
 
 export async function judge(game, verdict, partnerId) {
   return guardedGameWrite(game.id, (current) => {
+    // Only judge a prompt that's still open — a double-tapped verdict
+    // aborts instead of advancing two rounds.
+    if (current.state.phase !== 'prompt' || !current.state.spinner_done) return null;
     const scores = { ...current.state.scores };
     if (verdict === 'did') scores[current.state.spinner_id] = (scores[current.state.spinner_id] || 0) + 1;
     return advance({ ...current.state, scores }, partnerId);
