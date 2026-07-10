@@ -54,9 +54,23 @@
     if (res.ok) room = res.room;
   }
 
-  async function reloadInvite() {
+  // Fires on every game_invites change for this room — including from the
+  // OTHER partner's device (e.g. them accepting/declining my invite). Has
+  // to check for a newly-started game too, not just re-fetch the pending
+  // invite: an "accepted" status change means a game_sessions row now
+  // exists, and the inviter's client needs to pick that up, not just see
+  // the invite disappear and fall back to an empty lobby.
+  async function reloadInviteAndGame() {
     if (!room) return;
-    invite = game ? null : await fetchActiveInvite(room.id);
+    const activeGame = await reconcileActiveGame(room.id);
+    if (activeGame) {
+      game = activeGame;
+      invite = null;
+      if (game.game_type === 'wyr') await loadMoves();
+      rewireGameSubscription();
+    } else {
+      invite = await fetchActiveInvite(room.id);
+    }
   }
 
   function rewireMembersSubscription() {
@@ -66,7 +80,7 @@
 
   function rewireInvitesSubscription() {
     if (unsubInvites) unsubInvites();
-    unsubInvites = subscribeToInvites(room.id, reloadInvite);
+    unsubInvites = subscribeToInvites(room.id, reloadInviteAndGame);
   }
 
   async function loadMoves() {

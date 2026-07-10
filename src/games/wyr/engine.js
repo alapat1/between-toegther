@@ -8,11 +8,19 @@
 import { sb } from '../../engine/supabase.js';
 import { guardedGameWrite } from '../../engine/session.js';
 
+// wyr_moves.choice is an integer column in the DB (0 = 'a', 1 = 'b') —
+// the rest of the app works in 'a'/'b' strings, so the conversion happens
+// at this boundary only. Every insert was silently failing before this
+// fix (integer column rejecting a string value, and the error was never
+// surfaced to the UI — looked exactly like "clicking does nothing").
+function choiceToInt(choice) { return choice === 'a' ? 0 : 1; }
+function intToChoice(n) { return n === 0 ? 'a' : 'b'; }
+
 export async function makeChoice(game, userId, choice) {
   const round = game.state.round;
   const { error } = await sb
     .from('wyr_moves')
-    .insert({ game_id: game.id, user_id: userId, round, choice });
+    .insert({ game_id: game.id, user_id: userId, round, choice: choiceToInt(choice) });
   // 23505 = already voted this round (rematch-safe key is game.id + round,
   // not the bare round number — that was the bug that ate a partner's first
   // tap across rematches).
@@ -23,7 +31,7 @@ export async function makeChoice(game, userId, choice) {
 export function bothChosen(moves, round, userId, partnerId) {
   const mine = moves.find((m) => m.round === round && m.user_id === userId);
   const theirs = moves.find((m) => m.round === round && m.user_id === partnerId);
-  return mine && theirs ? { mine: mine.choice, theirs: theirs.choice } : null;
+  return mine && theirs ? { mine: intToChoice(mine.choice), theirs: intToChoice(theirs.choice) } : null;
 }
 
 /**
