@@ -7,6 +7,7 @@
   import FingerSmash from '../games/fingersmash/FingerSmash.svelte';
   import ScreeningRoom from '../lib/ScreeningRoom.svelte';
   import Settings from '../lib/Settings.svelte';
+  import Recap from '../lib/Recap.svelte';
   import { sb } from '../engine/supabase.js';
   import { loadRoom, partnerOf, renameRoom, leaveRoom, subscribeToRoomMembers, joinPresence } from '../engine/room.js';
   import { reconcileActiveGame, startGame, subscribeToGame, guardedGameWrite } from '../engine/session.js';
@@ -26,6 +27,7 @@
   let room = null;
   let game = null;
   let invite = null; // pending game_invites row for this room, or null
+  let recap = null;  // final (ended) game_sessions row awaiting its recap screen
   let screeningOpen = false; // Screening Room isn't a game_session — no rounds/version guard
   let settingsOpen = false;
   let menuOpen = false;
@@ -60,6 +62,7 @@
   function handlePopstate() {
     if (settingsOpen) { settingsOpen = false; return; }
     if (screeningOpen) { screeningOpen = false; return; }
+    if (recap) { recap = null; return; }
     if (game) {
       pushView();
       toast('use the menu to end the game first');
@@ -96,6 +99,20 @@
     if (res.ok) room = res.room;
   }
 
+  // A game that just vanished from "active" either finished naturally
+  // (phase ended/end → show the recap, don't snap to the lobby — that snap
+  // was the "games just closed without a scoreboard" bug) or was ended
+  // manually via the menu (no recap, just a heads-up).
+  async function handleGameGone(prevGameId) {
+    if (!prevGameId) return;
+    const { data: final } = await sb.from('game_sessions').select('*').eq('id', prevGameId).maybeSingle();
+    if (final && (final.phase === 'ended' || final.phase === 'end')) {
+      recap = final;
+    } else if (final && final.ended_at) {
+      toast('the game was ended');
+    }
+  }
+
   // Fires on every game_invites change for this room — including from the
   // OTHER partner's device. Has to check for a newly-started game too, not
   // just re-fetch the pending invite.
@@ -106,13 +123,16 @@
       if (!game || game.id !== activeGame.id) {
         game = activeGame;
         invite = null;
+        recap = null;
         if (game.game_type === 'wyr') await loadMoves();
         rewireGameSubscription();
       } else {
         game = activeGame;
       }
     } else {
+      const prevId = game?.id;
       game = null;
+      if (prevId && !recap) await handleGameGone(prevId);
       invite = await fetchActiveInvite(room.id);
     }
   }
@@ -156,9 +176,13 @@
     if (movesChannel) sb.removeChannel(movesChannel);
     if (!game) return;
 
+    const subscribedGameId = game.id;
     unsubGame = subscribeToGame(game.id, async () => {
       game = await reconcileActiveGame(room.id);
-      if (!game) invite = await fetchActiveInvite(room.id);
+      if (!game) {
+        await handleGameGone(subscribedGameId);
+        invite = await fetchActiveInvite(room.id);
+      }
     });
 
     if (game.game_type === 'wyr') {
@@ -203,6 +227,13 @@
     const res = await sendInvite(room.id, userId, gameType, rounds, config);
     if (res.ok) invite = res.invite;
     else toastError("couldn't send the invite — try again");
+  }
+
+  // Rematch from the recap screen: same game, same shape, fresh invite —
+  // the partner still gets to accept (mutual-consent model holds).
+  async function rematchGame(gameType, rounds, config) {
+    recap = null;
+    await proposeGame(gameType, rounds, config);
   }
 
   function proposeWYR(rounds) {
@@ -390,6 +421,15 @@
         </div>
       {/if}
     </div>
+  {:else if recap}
+    <Recap
+      game={recap}
+      {userId}
+      partnerId={partner?.user_id}
+      partnerName={partner?.display_name || 'them'}
+      onRematch={rematchGame}
+      onDone={() => (recap = null)}
+    />
   {:else if screeningOpen}
     <button class="back-btn" on:click={() => history.back()}>← back to lobby</button>
     <ScreeningRoom roomId={room.id} {userId} partnerId={partner?.user_id} />
