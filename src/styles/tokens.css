@@ -1,0 +1,49 @@
+/* Locked 2026-07-09 — design-bank.md §3 (palette), §2 (type), §10.4 (dark-only) */
+
+:root {
+  /* canvas */
+  --bg: #100D0C;
+  --surface: #1A1614;
+  --surface-2: #221C19;
+  --text: #F2EDE8;
+  --text-soft: #8A8580;
+
+  /* accent pool — a flexible pool, not a fixed feature mapping (design-bank.md §11) */
+  --accent-orange-pop: #FFBA52;
+  --accent-fruit-dove: #CF5C78;
+  --accent-summer-green: #80D481;
+  --accent-freesia: #F4C12C;
+  --accent-blue-atoll: #00B1D2;
+
+  /* on-accent pairs — dark text safe on every bright accent above */
+  --on-accent-orange-pop: #4A2E05;
+  --on-accent-fruit-dove: #400012;
+  --on-accent-summer-green: #0B3312;
+  --on-accent-freesia: #402D00;
+  --on-accent-blue-atoll: #00272E;
+
+  /* type trio */
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Space Grotesk', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* plate system — razor-sharp corners, hard offset shadow, press travel */
+  --radius: 0px;
+  --plate-shadow-x: 5px;
+  --plate-shadow-y: 6px;
+  --plate-press-travel: 4px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
