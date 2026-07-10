@@ -37,25 +37,31 @@ export function bothChosen(moves, round, userId, partnerId) {
 /**
  * Both players must independently confirm "ready" after seeing the reveal
  * before the round advances — this replaces the old 8s auto-advance timer.
+ *
+ * Both the "mark me ready" write AND the "are we both ready now?" check
+ * must happen inside the SAME guardedGameWrite callback, against the row it
+ * just fetched fresh from the DB — not against the caller's local `game`
+ * prop. The prop is only ever refreshed by the realtime subscription firing
+ * after a write commits, so checking it right after your own await is
+ * checking stale data that never includes your own just-written flag. That
+ * was the bug: neither player's tap ever advanced the round, because each
+ * one's "am I both ready" check ran against a copy of the state that
+ * predated its own write. (Matches the pattern fixed elsewhere — Finger
+ * Smash's tapReady already does this check inside the guardedWrite.)
  */
-export async function markReadyForNext(game, userId) {
+export async function markReadyForNext(game, userId, partnerId, pipToAppend) {
   return guardedGameWrite(game.id, (current) => {
     const ready = { ...(current.state.readyForNext || {}), [userId]: true };
-    return { state: { ...current.state, readyForNext: ready } };
-  });
-}
+    const bothNowReady = !!(ready[userId] && ready[partnerId]);
 
-export function bothReady(gameState, userId, partnerId) {
-  const ready = gameState.readyForNext || {};
-  return !!(ready[userId] && ready[partnerId]);
-}
+    if (!bothNowReady) {
+      return { state: { ...current.state, readyForNext: ready } };
+    }
 
-export async function advanceRound(game, pipToAppend) {
-  return guardedGameWrite(game.id, (current) => {
     const nextRound = current.state.round + 1;
     const pips = [...(current.state.pips || []), pipToAppend]; // 'match' | 'clash'
     if (nextRound >= current.state.prompts.length) {
-      return { phase: 'ended', state: { ...current.state, pips } };
+      return { phase: 'ended', state: { ...current.state, pips, readyForNext: ready } };
     }
     return {
       phase: 'pick',

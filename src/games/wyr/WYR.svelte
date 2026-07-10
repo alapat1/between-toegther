@@ -3,7 +3,7 @@
   // the redesign rolls out to every other screen (roadmap.md sequencing #3).
   // Implements flows.md §2.2: split-slam choice, heat-shimmer waiting state,
   // flip reveal, pip trace strip, wait-for-both advance (no auto-timer).
-  import { makeChoice, bothChosen, markReadyForNext, bothReady, advanceRound } from './engine.js';
+  import { makeChoice, bothChosen, markReadyForNext } from './engine.js';
 
   export let game;        // game_sessions row (state.prompts, state.round, state.pips, state.readyForNext)
   export let userId;
@@ -24,10 +24,7 @@
   async function confirmReady() {
     if (iAmReady) return;
     const pip = reveal.mine === reveal.theirs ? 'match' : 'clash';
-    await markReadyForNext(game, userId);
-    if (bothReady(game.state, userId, partnerId)) {
-      await advanceRound(game, pip);
-    }
+    await markReadyForNext(game, userId, partnerId, pip);
   }
 </script>
 
