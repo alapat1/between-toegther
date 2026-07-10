@@ -249,8 +249,10 @@
     proposeGame('fs', rounds, {});
   }
 
+  let answeringInvite = false;
   async function acceptInvite() {
-    if (!invite) return;
+    if (!invite || answeringInvite) return;
+    answeringInvite = true;
     await respondInvite(invite.id, true);
     const gameType = invite.game_type;
     const initialState = await buildInitialState(gameType, invite.rounds, invite.config || {});
@@ -263,12 +265,15 @@
     } else {
       toastError("couldn't start the game — try again");
     }
+    answeringInvite = false;
   }
 
   async function declineInvite() {
-    if (!invite) return;
+    if (!invite || answeringInvite) return;
+    answeringInvite = true;
     await respondInvite(invite.id, false);
     invite = null;
+    answeringInvite = false;
   }
 
   // Escape hatch: either partner can end the current game. Sets ended_at so
@@ -416,8 +421,8 @@
       {:else}
         <p class="invite-text">{partner?.display_name || 'they'} want{partner ? 's' : ''} to play <strong>{invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme} · {invite.config.theme}{/if}</p>
         <div class="row bottom">
-          <button class="invite-btn decline" on:click={declineInvite}>not now</button>
-          <button class="invite-btn accept" on:click={acceptInvite}>let's go</button>
+          <button class="invite-btn decline" disabled={answeringInvite} on:click={declineInvite}>not now</button>
+          <button class="invite-btn accept" disabled={answeringInvite} on:click={acceptInvite}>{answeringInvite ? 'starting…' : "let's go"}</button>
         </div>
       {/if}
     </div>

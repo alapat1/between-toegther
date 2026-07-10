@@ -58,6 +58,10 @@ export function msLeftInRound(state) {
 export async function flushTaps(game, userId, additionalCount) {
   if (additionalCount <= 0) return { ok: true };
   return guardedGameWrite(game.id, (current) => {
+    // A flush that lands after the round closed must NOT count — without
+    // this guard, taps from the last 250ms window of round N leaked into
+    // round N+1's fresh tally (endRound resets taps to {}).
+    if (current.state.phase !== 'playing') return null;
     const taps = { ...current.state.taps, [userId]: (current.state.taps[userId] || 0) + additionalCount };
     return { state: { ...current.state, taps } };
   });

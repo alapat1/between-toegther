@@ -4,6 +4,8 @@
   // second minimal toggle next to it (roadmap.md §Watchlist item 5).
   import BoardSheet from './BoardSheet.svelte';
   import { markWatched, unmarkWatched, getOrCreateDefaultBoard, addToBoard } from '../engine/screeningRoom.js';
+  import { toast, toastError } from '../engine/toast.js';
+  import { buzz } from '../engine/prefs.js';
 
   export let roomId;
   export let userId;
@@ -13,23 +15,34 @@
 
   let showSheet = false;
   let longPressTimer = null;
+  let longPressFired = false; // a completed long-press must not ALSO open the sheet on release
 
   async function quickSaveToDefault() {
+    longPressFired = true;
+    buzz();
     const board = await getOrCreateDefaultBoard(roomId);
-    await addToBoard(board.id, candidate, userId);
+    const res = await addToBoard(board.id, candidate, userId);
+    if (res.ok) toast(`saved "${candidate.title}" to our list`, 'success');
+    else toastError("couldn't save that one");
   }
 
   function startPress() {
+    longPressFired = false;
     longPressTimer = setTimeout(quickSaveToDefault, 500);
   }
   function endPress() {
     clearTimeout(longPressTimer);
   }
+  function openSheet() {
+    if (longPressFired) { longPressFired = false; return; }
+    showSheet = true;
+  }
 
   async function toggleWatched() {
-    if (watched) await unmarkWatched(roomId, candidate);
-    else await markWatched(roomId, candidate, userId);
-    onWatchedToggle(!watched);
+    const res = watched ? await unmarkWatched(roomId, candidate) : await markWatched(roomId, candidate, userId);
+    if (!res.ok) { toastError("couldn't update watched"); return; }
+    watched = !watched; // flip locally — parents don't re-fetch on toggle
+    onWatchedToggle(watched);
   }
 </script>
 
@@ -44,7 +57,7 @@
     <div class="icons">
       <button
         class="icon-btn save"
-        on:click={() => (showSheet = true)}
+        on:click={openSheet}
         on:pointerdown={startPress}
         on:pointerup={endPress}
         on:pointerleave={endPress}

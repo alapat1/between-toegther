@@ -93,7 +93,12 @@ function advanceRoundState(state) {
     state: {
       ...state,
       round: nextRound,
-      currentTurn: state.currentTurn, // swapped by caller if needed
+      // Roles ROTATE every round: last round's performer becomes the
+      // chooser and vice versa. (The old "swapped by caller if needed"
+      // comment was a lie — no caller ever swapped, so one partner
+      // performed every single round of the game.)
+      currentTurn: state.chooser,
+      chooser: state.currentTurn,
       phase: 'chooser_picks',
       choice: null,
       prompt: null,

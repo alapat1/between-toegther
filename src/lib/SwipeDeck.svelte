@@ -19,7 +19,7 @@
   export let taste = null; // sr_taste_profiles row or null
 
   let deck = [];
-  let idx = 0;
+  let gone = new Set(); // candidateKeys swiped this session (local view state)
   let loading = true;
   let matchFlash = null;
   let activeChip = null;
@@ -49,13 +49,23 @@
       fetchSwipedIds(roomId, userId)
     ]);
     deck = candidates.filter((c) => !swiped.has(candidateKey(c)));
-    idx = 0;
+    gone = new Set();
     loading = false;
   }
 
   onMount(loadDeck);
 
-  $: current = deck[idx];
+  // The genre chips genuinely filter the deck (they were decorative-only in
+  // the first pass): a TMDB chip matches genre ids, the anime chip matches
+  // the AniList source. Switching chips keeps your swipe history — `gone`
+  // tracks what's been swiped regardless of which filter you were on.
+  function matchesChip(c) {
+    if (!activeChip) return true;
+    if (activeChip === ANIME_CHIP.id) return c.source === 'anilist';
+    return (c.genres || []).includes(activeChip);
+  }
+  $: remaining = deck.filter((c) => !gone.has(candidateKey(c)) && matchesChip(c));
+  $: current = remaining[0];
 
   async function decide(liked) {
     if (!current || busy) return;
@@ -69,7 +79,8 @@
       buzz([60, 40, 60]);
       setTimeout(() => (matchFlash = null), 1800);
     }
-    idx += 1;
+    gone.add(candidateKey(cand));
+    gone = gone; // trigger reactivity
     armUndo(cand, liked, !!res.matched);
   }
 
@@ -87,7 +98,8 @@
     const res = await undoSwipe(roomId, userId, candidate, matched);
     if (!res.ok) { toastError("couldn't undo that one"); return; }
     matchFlash = null;
-    idx = Math.max(0, idx - 1);
+    gone.delete(candidateKey(candidate));
+    gone = gone;
     toast('undone', 'success');
   }
 
