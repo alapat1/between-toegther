@@ -3,6 +3,7 @@
   // (no orbit physics yet); picking a game opens its ArcadeCabinet.
   import ArcadeCabinet from './ArcadeCabinet.svelte';
 
+  export let isHost;
   export let partnerPresent;
   export let onStartWYR;   // (rounds) => void
   export let onStartTOD;   // (rounds, theme) => void
@@ -14,7 +15,15 @@
 </script>
 
 <div class="lobby">
-  {#if !picked}
+  {#if !isHost}
+    <!-- Game choice + setup (rounds/heat dial) is host-owned, no negotiation
+         UI (flows.md §2.1/§2.8 — the heat dial is single-owner by design;
+         this extends the same "no second input" rule to the whole setup
+         step rather than letting either client race to start a game). The
+         joiner still gets full access to Screening Room, which is shared. -->
+    <p class="hint">waiting for them to pick something…</p>
+    <button class="orbit-tile wide" style="--tile-accent: var(--accent-summer-green);" on:click={onOpenScreeningRoom}>screening room</button>
+  {:else if !picked}
     <p class="hint">tonight, what are we playing?</p>
     <div class="hub">
       <button class="orbit-tile" style="--tile-accent: var(--accent-blue-atoll);" on:click={() => (picked = 'wyr')}>would you rather</button>

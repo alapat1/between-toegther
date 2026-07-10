@@ -82,3 +82,40 @@ export function partnerOf(members, userId) {
 export function selfOf(members, userId) {
   return (members || []).find((m) => m.user_id === userId) || null;
 }
+
+/**
+ * Realtime membership changes for a room — the fix for the "host still says
+ * waiting for partner even after they joined" bug. Room.svelte previously
+ * fetched room_members once on mount and never again, so a partner joining
+ * after the host was already sitting on the lobby screen was invisible
+ * until a manual reload. Same teardown+resubscribe-on-wake pattern as
+ * subscribeToGame (session.js) so this doesn't rot after a phone lock either.
+ */
+export function subscribeToRoomMembers(roomId, onChange) {
+  let channel = null;
+
+  function subscribe() {
+    channel = sb
+      .channel(`room_members:${roomId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` }, onChange)
+      .subscribe();
+  }
+
+  function teardownAndResubscribe() {
+    if (channel) sb.removeChannel(channel);
+    subscribe();
+  }
+
+  subscribe();
+  const visibilityHandler = () => {
+    if (document.visibilityState === 'visible') teardownAndResubscribe();
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
+  window.addEventListener('online', teardownAndResubscribe);
+
+  return function unsubscribe() {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    window.removeEventListener('online', teardownAndResubscribe);
+    if (channel) sb.removeChannel(channel);
+  };
+}

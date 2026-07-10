@@ -7,7 +7,7 @@
   import FingerSmash from '../games/fingersmash/FingerSmash.svelte';
   import ScreeningRoom from '../lib/ScreeningRoom.svelte';
   import { sb } from '../engine/supabase.js';
-  import { loadRoom, partnerOf } from '../engine/room.js';
+  import { loadRoom, partnerOf, selfOf, subscribeToRoomMembers } from '../engine/room.js';
   import { reconcileActiveGame, startGame, subscribeToGame } from '../engine/session.js';
   import { fetchWyrPrompts } from '../engine/promptsRepo.js';
   import * as todEngine from '../games/tod/engine.js';
@@ -23,9 +23,12 @@
   let moves = []; // only used for WYR (wyr_moves table)
   let loading = true;
   let unsubGame = null;
+  let unsubMembers = null;
   let movesChannel = null;
 
   $: partner = room ? partnerOf(room.members, userId) : null;
+  $: self = room ? selfOf(room.members, userId) : null;
+  $: isHost = self?.role === 'host';
 
   async function refresh() {
     const res = await loadRoom(code);
@@ -35,6 +38,19 @@
     if (game && game.type === 'wyr') await loadMoves();
     loading = false;
     rewireGameSubscription();
+    rewireMembersSubscription();
+  }
+
+  // Refetches just room+members — cheap enough to call on every
+  // room_members change (join/leave) rather than diffing manually.
+  async function reloadMembers() {
+    const res = await loadRoom(code);
+    if (res.ok) room = res.room;
+  }
+
+  function rewireMembersSubscription() {
+    if (unsubMembers) unsubMembers();
+    unsubMembers = subscribeToRoomMembers(room.id, reloadMembers);
   }
 
   async function loadMoves() {
@@ -86,6 +102,7 @@
   onMount(refresh);
   onDestroy(() => {
     if (unsubGame) unsubGame();
+    if (unsubMembers) unsubMembers();
     if (movesChannel) sb.removeChannel(movesChannel);
   });
 </script>
@@ -113,6 +130,7 @@
     <ScreeningRoom roomId={room.id} {userId} partnerId={partner?.user_id} />
   {:else}
     <Lobby
+      {isHost}
       partnerPresent={!!partner}
       onStartWYR={startWYR}
       onStartTOD={startTOD}
