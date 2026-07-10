@@ -32,9 +32,13 @@ export async function reconcileActiveGame(roomId) {
 }
 
 export async function startGame(roomId, type, rounds, initialState) {
+  // game_sessions' actual column is `game_type` (not `type`), and its check
+  // constraint only allows 'wyr' | 'tod' | 'fs' | 'spin' — this mismatch is
+  // what silently broke every "start game" click before this fix landed
+  // (the insert failed, and nothing surfaced the error to the caller).
   const { data, error } = await sb
     .from('game_sessions')
-    .insert({ room_id: roomId, type, state: { round: 0, totalRounds: rounds, ...initialState }, phase: 'active' })
+    .insert({ room_id: roomId, game_type: type, state: { round: 0, totalRounds: rounds, ...initialState }, phase: 'active' })
     .select()
     .single();
 

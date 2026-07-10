@@ -35,7 +35,7 @@
     if (!res.ok) { loading = false; return; }
     room = res.room;
     game = await reconcileActiveGame(room.id);
-    if (game && game.type === 'wyr') await loadMoves();
+    if (game && game.game_type === 'wyr') await loadMoves();
     loading = false;
     rewireGameSubscription();
     rewireMembersSubscription();
@@ -68,7 +68,7 @@
       game = await reconcileActiveGame(room.id);
     });
 
-    if (game.type === 'wyr') {
+    if (game.game_type === 'wyr') {
       movesChannel = sb
         .channel(`wyr_moves:${game.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wyr_moves', filter: `game_id=eq.${game.id}` }, loadMoves)
@@ -96,7 +96,7 @@
     launch('spin', spinEngine.initialState(rounds, userId));
   }
   function startFS(rounds) {
-    launch('fingersmash', fsEngine.initialState(rounds));
+    launch('fs', fsEngine.initialState(rounds)); // DB check constraint requires 'fs', not 'fingersmash'
   }
 
   onMount(refresh);
@@ -117,13 +117,13 @@
     <span class="presence">{partner ? partner.display_name : 'waiting for partner…'}</span>
   </div>
 
-  {#if game && game.type === 'wyr'}
+  {#if game && game.game_type === 'wyr'}
     <WYR {game} {userId} partnerId={partner?.user_id} {moves} />
-  {:else if game && game.type === 'tod'}
+  {:else if game && game.game_type === 'tod'}
     <TOD {game} {userId} partnerId={partner?.user_id} />
-  {:else if game && game.type === 'spin'}
+  {:else if game && game.game_type === 'spin'}
     <Spin {game} {userId} partnerId={partner?.user_id} />
-  {:else if game && game.type === 'fingersmash'}
+  {:else if game && game.game_type === 'fs'}
     <FingerSmash {game} {userId} partnerId={partner?.user_id} />
   {:else if screeningOpen}
     <button class="back-btn" on:click={() => (screeningOpen = false)}>← back to lobby</button>
