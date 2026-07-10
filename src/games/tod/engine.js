@@ -70,7 +70,9 @@ export async function judgeConfirm(game, completed) {
 function advanceRoundState(state) {
   const nextRound = state.round + 1;
   if (nextRound >= state.totalRounds) {
-    return { phase: 'end', state: { ...state, phase: 'end' } };
+    // ended_at releases unique_active_game_per_room so the room isn't
+    // permanently blocked by the finished game.
+    return { phase: 'end', ended_at: new Date().toISOString(), state: { ...state, phase: 'end' } };
   }
   return {
     phase: 'chooser_picks',

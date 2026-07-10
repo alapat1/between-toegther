@@ -27,9 +27,12 @@ export async function tapReady(game, userId, partnerId) {
     const bothReady = readyTaps[userId] && readyTaps[partnerId];
     if (!bothReady) return { state: { ...current.state, readyTaps } };
     // Second tap writes the shared clock anchor — this is the actual fix.
+    // state.phase MUST move too: the component renders off state.phase, and
+    // leaving it at 'ready_gate' while only the top-level column changed is
+    // exactly what froze FS at the ready gate in live testing (2026-07-10).
     return {
       phase: 'countdown',
-      state: { ...current.state, readyTaps, roundStartedAt: new Date().toISOString(), taps: {} }
+      state: { ...current.state, phase: 'countdown', readyTaps, roundStartedAt: new Date().toISOString(), taps: {} }
     };
   });
 }
@@ -72,7 +75,9 @@ export async function endRound(game) {
     }
     const nextRound = current.state.round + 1;
     if (nextRound >= current.state.totalRounds) {
-      return { phase: 'ended', state: { ...current.state, scores, phase: 'ended' } };
+      // ended_at releases unique_active_game_per_room — without it a finished
+      // game blocks its room forever (every re-entry reconciles back into it).
+      return { phase: 'ended', ended_at: new Date().toISOString(), state: { ...current.state, scores, phase: 'ended' } };
     }
     return {
       phase: 'ready_gate',

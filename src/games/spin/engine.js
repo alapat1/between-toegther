@@ -44,6 +44,10 @@ export async function spin(game) {
     phase: 'prompt',
     state: {
       ...current.state,
+      // state.phase must track the top-level phase — the component renders
+      // off state.phase, and omitting it here left both phones stuck on the
+      // spin screen (spinner re-tapped spin 10× in live testing 2026-07-10).
+      phase: 'prompt',
       wheel_result: idx,
       current_tier: segment.tier,
       current_type: segment.type,
@@ -75,12 +79,15 @@ export async function judge(game, verdict, partnerId) {
 function advance(state, partnerId) {
   const next = state.round + 1;
   if (next >= state.total_rounds) {
-    return { phase: 'ended', state: { ...state, phase: 'ended' } };
+    // ended_at releases unique_active_game_per_room so the room isn't
+    // permanently blocked by the finished game.
+    return { phase: 'ended', ended_at: new Date().toISOString(), state: { ...state, phase: 'ended' } };
   }
   return {
     phase: 'spinning',
     state: {
       ...state,
+      phase: 'spinning',
       round: next,
       spinner_id: partnerId, // rotate every round
       wheel_result: null,

@@ -8,7 +8,7 @@
   import ScreeningRoom from '../lib/ScreeningRoom.svelte';
   import { sb } from '../engine/supabase.js';
   import { loadRoom, partnerOf, renameRoom, subscribeToRoomMembers } from '../engine/room.js';
-  import { reconcileActiveGame, startGame, subscribeToGame } from '../engine/session.js';
+  import { reconcileActiveGame, startGame, subscribeToGame, guardedGameWrite } from '../engine/session.js';
   import { sendInvite, respondInvite, fetchActiveInvite, subscribeToInvites } from '../engine/invites.js';
   import { fetchWyrPrompts } from '../engine/promptsRepo.js';
   import * as todEngine from '../games/tod/engine.js';
@@ -161,6 +161,21 @@
     invite = null;
   }
 
+  // Escape hatch: either partner can end the current game and return the
+  // room to the lobby. Sets ended_at so unique_active_game_per_room frees
+  // up — without this, any game that jams (or is simply abandoned) blocks
+  // the room forever, since reconcileActiveGame keeps finding it on every
+  // re-entry. The partner's device follows via the game_sessions realtime
+  // subscription (reconcileActiveGame returns null once ended_at is set).
+  async function endCurrentGame() {
+    if (!game) return;
+    await guardedGameWrite(game.id, () => ({ ended_at: new Date().toISOString() }));
+    game = null;
+    moves = [];
+    rewireGameSubscription();
+    invite = await fetchActiveInvite(room.id);
+  }
+
   function startRenaming() {
     nameDraft = room.display_name || '';
     renaming = true;
@@ -195,6 +210,9 @@
       <button class="name-btn" on:click={startRenaming}>{room.display_name || `room ${room.code}`}</button>
     {/if}
     <span class="presence">{partner ? partner.display_name : 'waiting for partner…'}</span>
+    {#if game}
+      <button class="end-btn" on:click={endCurrentGame}>end game</button>
+    {/if}
   </div>
 
   {#if game && game.game_type === 'wyr'}
@@ -257,6 +275,11 @@
     background: var(--surface); border: none; color: var(--text);
     font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; padding: 4px 8px; max-width: 60%;
+  }
+  .end-btn {
+    background: none; border: 1px solid var(--surface-2); color: var(--text-soft);
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; cursor: pointer; padding: 3px 8px;
   }
   .status { padding: 24px; color: var(--text-soft); font-family: var(--font-body); }
   .back-btn {

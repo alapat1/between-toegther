@@ -61,7 +61,9 @@ export async function markReadyForNext(game, userId, partnerId, pipToAppend) {
     const nextRound = current.state.round + 1;
     const pips = [...(current.state.pips || []), pipToAppend]; // 'match' | 'clash'
     if (nextRound >= current.state.prompts.length) {
-      return { phase: 'ended', state: { ...current.state, pips, readyForNext: ready } };
+      // ended_at releases unique_active_game_per_room so the room isn't
+      // permanently blocked by the finished game.
+      return { phase: 'ended', ended_at: new Date().toISOString(), state: { ...current.state, pips, readyForNext: ready } };
     }
     return {
       phase: 'pick',
