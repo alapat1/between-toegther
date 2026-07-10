@@ -4,6 +4,7 @@
 // invisible because nothing surfaced errors). Engines/components call
 // toast() on any { ok: false } path; Toast.svelte renders the queue.
 import { writable } from 'svelte/store';
+import { logError } from './errlog.js';
 
 export const toasts = writable([]);
 let nextId = 0;
@@ -18,5 +19,8 @@ export function toast(message, kind = 'info', duration = 3200) {
 }
 
 export function toastError(message = "that didn't go through — try again") {
+  // Every user-facing error toast is also evidence — record it. The message
+  // alone locates the call site; write-level detail comes from guardedWrite.
+  logError('surfaced-error', message);
   return toast(message, 'error', 4000);
 }

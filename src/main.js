@@ -1,4 +1,7 @@
 import App from './App.svelte';
+import { initErrorCatcher } from './engine/errlog.js';
+
+initErrorCatcher();
 
 const app = new App({
   target: document.getElementById('app')

@@ -13,6 +13,7 @@
   import { sendInvite, respondInvite, fetchActiveInvite, subscribeToInvites } from '../engine/invites.js';
   import { fetchWyrPrompts } from '../engine/promptsRepo.js';
   import { toast, toastError } from '../engine/toast.js';
+  import { setErrorContext } from '../engine/errlog.js';
   import { confirm } from '../engine/confirm.js';
   import { buzz } from '../engine/prefs.js';
   import * as todEngine from '../games/tod/engine.js';
@@ -47,6 +48,8 @@
   $: partnerStatus = partner ? (peers[partner.user_id] || 'away') : null;
   $: myView = game ? 'game' : screeningOpen ? 'screening' : 'lobby';
   $: if (presence) presence.setStatus(myView);
+  // Attach where-we-were context to every logged error.
+  $: setErrorContext({ roomId: room?.id || null, gameType: game?.game_type || null, view: myView });
 
   // In-app back handling: back-swipe closes overlays (settings, screening
   // room) instead of leaving the app, and can't accidentally exit a live
