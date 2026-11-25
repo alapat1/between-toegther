@@ -84,7 +84,7 @@
 
   <div class="section">
     <p class="label">your space</p>
-    <p class="space-name">{room.display_name || `room ${room.code}`} · <span class="code">{room.code}</span></p>
+    <p class="space-name">{room.display_name || `space ${room.code}`} · <span class="code">{room.code}</span></p>
     <button class="row-btn" on:click={copyCode}>copy invite link</button>
     <button class="row-btn" on:click={onSwitchSpace}>switch space →</button>
     <button class="row-btn danger" on:click={onLeaveRoom}>leave this space</button>

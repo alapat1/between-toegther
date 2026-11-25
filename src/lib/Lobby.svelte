@@ -2,6 +2,7 @@
   // flows.md §2.5 — orbit hub arrangement. Simplified to a row for this pass
   // (no orbit physics yet); picking a game opens its ArcadeCabinet.
   import ArcadeCabinet from './ArcadeCabinet.svelte';
+  import InviteShare from './InviteShare.svelte';
 
   export let partnerPresent;
   export let partnerName = 'your person';
@@ -22,12 +23,9 @@
 <div class="lobby">
   {#if !partnerPresent}
     <div class="solo-card">
-      <p class="solo-title">it's just you here so far</p>
-      <p class="solo-sub">this space comes alive when they join — send them the code.</p>
-      <div class="solo-row">
-        <span class="solo-code">{roomCode}</span>
-        <button class="solo-copy" on:click={onCopyInvite}>copy invite link</button>
-      </div>
+      <p class="solo-title">you're the first one here</p>
+      <p class="solo-sub" role="status">share this with one person. the games unlock the moment they join.</p>
+      <InviteShare code={roomCode} />
     </div>
   {/if}
   {#if !picked}

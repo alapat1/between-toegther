@@ -9,7 +9,7 @@
   import Settings from '../lib/Settings.svelte';
   import Recap from '../lib/Recap.svelte';
   import { sb } from '../engine/supabase.js';
-  import { loadRoom, partnerOf, renameRoom, leaveRoom, subscribeToRoomMembers, joinPresence } from '../engine/room.js';
+  import { loadRoom, joinRoom, partnerOf, renameRoom, leaveRoom, subscribeToRoomMembers, joinPresence } from '../engine/room.js';
   import { reconcileActiveGame, startGame, subscribeToGame, guardedGameWrite } from '../engine/session.js';
   import { sendInvite, respondInvite, fetchActiveInvite, subscribeToInvites } from '../engine/invites.js';
   import { fetchWyrPrompts } from '../engine/promptsRepo.js';
@@ -50,6 +50,8 @@
   let watchdogTimer = null;
   let lastNudgeSentAt = 0;
   let hadGame = false;
+  // Opening a link as someone who isn't in the space yet: ask before joining.
+  let joinState = null; // null | 'prompt' | 'joining' | 'full' | 'missing' | 'error'
 
   $: partner = room ? partnerOf(room.members, userId) : null;
   $: partnerName = nameOr(partner?.display_name);
@@ -87,7 +89,7 @@
 
   async function refresh() {
     const res = await loadRoom(code);
-    if (!res.ok) { loading = false; return; }
+    if (!res.ok) { loading = false; if (!room) joinState = 'prompt'; return; }
     room = res.room;
     game = await reconcileActiveGame(room.id);
     invite = game ? null : await fetchActiveInvite(room.id);
@@ -97,6 +99,25 @@
     rewireMembersSubscription();
     rewireInvitesSubscription();
     rewirePresence();
+  }
+
+  async function acceptJoin() {
+    joinState = 'joining';
+    const res = await joinRoom(code);
+    if (res.ok) { joinState = null; loading = true; await refresh(); return; }
+    joinState = res.reason === 'room-full' ? 'full' : res.reason === 'no-such-room' ? 'missing' : 'error';
+  }
+  function backToStart() { location.hash = ''; }
+
+  // The moment the other person arrives is worth marking.
+  let aloneSeen = false;
+  $: if (room) {
+    if (!partner) aloneSeen = true;
+    else if (aloneSeen) {
+      aloneSeen = false;
+      toast(`${partnerName} joined`, 'success');
+      buzz([60, 40, 60]);
+    }
   }
 
   // Refetches just room+members — cheap enough to call on every
@@ -410,9 +431,29 @@
 </script>
 
 {#if loading}
-  <p class="status loading">opening the room<span class="dots"></span></p>
+  <p class="status loading">opening your space<span class="dots"></span></p>
 {:else if !room}
-  <p class="status">that room is gone.</p>
+  <div class="join-card">
+    {#if joinState === 'prompt' || joinState === 'joining'}
+      <p class="join-title">you've been invited to a space</p>
+      <p class="join-sub">it's a private space for two, where you can play together. joining takes one tap.</p>
+      <button class="join-btn" disabled={joinState === 'joining'} on:click={acceptJoin}>{joinState === 'joining' ? 'joining…' : 'join this space'}</button>
+      <button class="join-link" on:click={backToStart}>not now</button>
+    {:else if joinState === 'full'}
+      <p class="join-title">this space is already full</p>
+      <p class="join-sub">a space holds two people, and both seats are taken. ask them for a new invite, or start your own.</p>
+      <button class="join-btn" on:click={backToStart}>start my own space</button>
+    {:else if joinState === 'missing'}
+      <p class="join-title">we can't find that space</p>
+      <p class="join-sub">the link may be mistyped or the space was closed. check the code with the person who invited you.</p>
+      <button class="join-btn" on:click={backToStart}>back to start</button>
+    {:else}
+      <p class="join-title">that didn't work</p>
+      <p class="join-sub">check your connection and try again.</p>
+      <button class="join-btn" on:click={acceptJoin}>try again</button>
+      <button class="join-link" on:click={backToStart}>back to start</button>
+    {/if}
+  </div>
 {:else}
   {#if !$online}
     <div class="offline-banner" role="status">you're offline — reconnecting… your game will catch up when you're back</div>
@@ -421,7 +462,7 @@
     {#if renaming}
       <input class="name-input" bind:value={nameDraft} on:keydown={(e) => e.key === 'Enter' && saveRename()} on:blur={saveRename} use:focusOnMount aria-label="space name" />
     {:else}
-      <button class="name-btn" on:click={startRenaming}>{room.display_name || `room ${room.code}`}</button>
+      <button class="name-btn" on:click={startRenaming}>{room.display_name || `space ${room.code}`}</button>
     {/if}
     <span class="presence-label">
       {#if partner}<Avatar avatar={partner.avatar} id={partner.user_id} size={22} />{/if}
@@ -435,7 +476,7 @@
         {partner.display_name} · here
       {/if}
     </span>
-    <button class="menu-btn" aria-label="room menu" on:click={() => (menuOpen = !menuOpen)}>⋯</button>
+    <button class="menu-btn" aria-label="space menu" on:click={() => (menuOpen = !menuOpen)}>⋯</button>
   </div>
 
   {#if menuOpen}
@@ -519,6 +560,12 @@
 {/if}
 
 <style>
+  .join-card { padding: 40px 24px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+  .join-title { font-family: var(--font-display); font-weight: 800; font-size: 24px; margin: 0; line-height: 1.15; }
+  .join-sub { color: var(--text-soft); font-size: 15px; line-height: 1.5; margin: 0; }
+  .join-btn { width: 100%; background: var(--accent-summer-green); color: var(--on-accent-summer-green); border: none; padding: 16px; font-family: var(--font-display); font-weight: 800; text-transform: uppercase; cursor: pointer; box-shadow: 5px 6px 0 0 #000; }
+  .join-btn:disabled { opacity: 0.6; }
+  .join-link { background: none; border: none; color: var(--text-soft); font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; cursor: pointer; padding: 8px 0; }
   .loading .dots::after { content: ''; animation: dots 1.2s steps(4, end) infinite; }
   @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75%, 100% { content: '...'; } }
   .offline-banner { background: var(--accent-fruit-dove, #c0392b); color: #fff; font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; text-align: center; }
