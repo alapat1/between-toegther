@@ -60,7 +60,11 @@
       if (unflushed > 0) {
         const n = unflushed;
         unflushed = 0;
-        engine.flushTaps(game, userId, n);
+        // A failed flush must NOT drop the taps — put them back so the next
+        // interval retries instead of silently under-counting the round.
+        engine.flushTaps(game, userId, n).then((res) => {
+          if (!res.ok && res.reason !== 'aborted') unflushed += n;
+        });
       }
     }, 250);
   });

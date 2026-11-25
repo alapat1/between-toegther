@@ -14,10 +14,10 @@ import { logError } from './errlog.js';
  *   returns the partial update to apply. Called again on every retry with
  *   the freshly refetched row, so it must be pure/idempotent.
  * @param {object} [opts]
- * @param {number} [opts.maxAttempts=4]
+ * @param {number} [opts.maxAttempts=8]
  */
 export async function guardedWrite(table, id, computeUpdate, opts = {}) {
-  const maxAttempts = opts.maxAttempts ?? 4;
+  const maxAttempts = opts.maxAttempts ?? 8;
 
   let current = opts.startingRow ?? (await fetchRow(table, id));
   if (!current) return { ok: false, reason: 'not-found' };
@@ -43,8 +43,10 @@ export async function guardedWrite(table, id, computeUpdate, opts = {}) {
       logError('write-failure', `${table}: ${error.message}`, { code: error.code, table, rowId: id });
     }
 
-    // Version mismatch (or a transient error) — refetch and retry against
-    // the real current state rather than giving up silently.
+    // Version mismatch (or a transient error) — back off with jitter so two
+    // phones that just collided don't collide again in lockstep, then refetch
+    // and retry against the real current state rather than giving up silently.
+    await sleep(Math.min(400, 15 * 2 ** attempt) * (0.5 + Math.random()));
     current = await fetchRow(table, id);
     if (!current) return { ok: false, reason: 'not-found' };
   }
@@ -52,6 +54,8 @@ export async function guardedWrite(table, id, computeUpdate, opts = {}) {
   logError('write-exhausted', `${table}: retries exhausted`, { table, rowId: id });
   return { ok: false, reason: 'exhausted-retries' };
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchRow(table, id) {
   const { data, error } = await sb.from(table).select('*').eq('id', id).single();

@@ -17,6 +17,7 @@
   import { setErrorContext } from '../engine/errlog.js';
   import { confirm } from '../engine/confirm.js';
   import { buzz } from '../engine/prefs.js';
+  import { online } from '../engine/connection.js';
   import * as todEngine from '../games/tod/engine.js';
   import * as spinEngine from '../games/spin/engine.js';
   import * as fsEngine from '../games/fingersmash/engine.js';
@@ -197,17 +198,30 @@
   // it doesn't (dropped socket, missed publication, anything), nobody
   // should sit on "waiting on them…" forever. Every 20s, while visible,
   // quietly reconcile against the server's truth.
-  function startWatchdog() {
-    watchdogTimer = setInterval(async () => {
-      if (document.visibilityState !== 'visible' || !room) return;
-      await reloadInviteAndGame();
-      if (game && game.game_type === 'wyr') await loadMoves();
-      if (!game && !invite && !screeningOpen) {
-        const res = await loadRoom(code);
-        if (res.ok) room = res.room;
-      }
-    }, 20000);
+  async function resync() {
+    if (document.visibilityState !== 'visible' || !room) return;
+    await reloadInviteAndGame();
+    if (game && game.game_type === 'wyr') await loadMoves();
+    if (!game && !invite && !screeningOpen) {
+      const res = await loadRoom(code);
+      if (res.ok) room = res.room;
+    }
   }
+
+  // Poll faster while a game is live (a stuck "waiting on them…" in a
+  // 30-second round is unacceptable); relax when idle in the lobby.
+  function startWatchdog() {
+    let ticks = 0;
+    watchdogTimer = setInterval(() => {
+      ticks++;
+      if (game || ticks % 4 === 0) resync();
+    }, 5000);
+  }
+
+  // Waking from sleep / regaining signal: the realtime socket is torn down
+  // and re-subscribed elsewhere, but that does NOT replay events missed in
+  // the gap — so pull the server's truth immediately.
+  function handleWake() { if (document.visibilityState === 'visible') resync(); }
 
   // Building the actual initialState per game type needs the same
   // per-game setup the old direct-start flow had. Kept here rather than in
@@ -339,6 +353,8 @@
     refresh();
     startWatchdog();
     window.addEventListener('popstate', handlePopstate);
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('online', handleWake);
   });
   onDestroy(() => {
     if (unsubGame) unsubGame();
@@ -348,6 +364,8 @@
     if (presence) presence.unsubscribe();
     if (watchdogTimer) clearInterval(watchdogTimer);
     window.removeEventListener('popstate', handlePopstate);
+    document.removeEventListener('visibilitychange', handleWake);
+    window.removeEventListener('online', handleWake);
   });
 </script>
 
@@ -356,6 +374,9 @@
 {:else if !room}
   <p class="status">that room is gone.</p>
 {:else}
+  {#if !$online}
+    <div class="offline-banner" role="status">you're offline — reconnecting… your game will catch up when you're back</div>
+  {/if}
   <div class="room-header">
     {#if renaming}
       <input class="name-input" bind:value={nameDraft} on:keydown={(e) => e.key === 'Enter' && saveRename()} on:blur={saveRename} autofocus />
@@ -453,6 +474,7 @@
 {/if}
 
 <style>
+  .offline-banner { background: var(--accent-fruit-dove, #c0392b); color: #fff; font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; text-align: center; }
   .room-header {
     display: flex;
     align-items: center;
