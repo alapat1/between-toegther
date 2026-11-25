@@ -233,6 +233,16 @@
   // Waking from sleep / regaining signal: the realtime socket is torn down
   // and re-subscribed elsewhere, but that does NOT replay events missed in
   // the gap — so pull the server's truth immediately.
+  // Apply my own successful write right away instead of waiting for the
+  // realtime echo — a slow echo made taps look dead. Only ever moves forward
+  // (version check), and an ended row goes through the normal recap path.
+  function handleOwnWrite(e) {
+    const row = e.detail;
+    if (!game || !row || row.id !== game.id) return;
+    if (row.ended_at) { resync(); return; }
+    if (row.version >= game.version) game = row;
+  }
+
   function handleWake() { if (document.visibilityState === 'visible') resync(); }
 
   // Building the actual initialState per game type needs the same
@@ -378,6 +388,7 @@
     window.addEventListener('popstate', handlePopstate);
     document.addEventListener('visibilitychange', handleWake);
     window.addEventListener('online', handleWake);
+    window.addEventListener('bt:game-write', handleOwnWrite);
   });
   onDestroy(() => {
     if (unsubGame) unsubGame();
@@ -390,6 +401,7 @@
     window.removeEventListener('popstate', handlePopstate);
     document.removeEventListener('visibilitychange', handleWake);
     window.removeEventListener('online', handleWake);
+    window.removeEventListener('bt:game-write', handleOwnWrite);
   });
 </script>
 
@@ -449,7 +461,7 @@
       onLeaveRoom={doLeaveRoom}
     />
   {:else if game && game.game_type === 'wyr'}
-    <WYR {game} {userId} partnerId={partner?.user_id} {moves} />
+    <WYR {game} {userId} partnerId={partner?.user_id} {moves} onMoved={loadMoves} />
   {:else if game && game.game_type === 'tod'}
     <TOD {game} {userId} partnerId={partner?.user_id} />
   {:else if game && game.game_type === 'spin'}

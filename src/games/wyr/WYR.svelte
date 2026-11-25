@@ -9,6 +9,7 @@
   export let userId;
   export let partnerId;
   export let moves = [];  // wyr_moves rows for this game
+  export let onMoved = () => {}; // refetch moves right after my own pick (don't wait for the realtime echo)
 
   $: round = game.state.round;
   $: prompt = game.state.prompts[round];
@@ -22,6 +23,7 @@
   async function choose(side) {
     if (myChoice) return;
     await makeChoice(game, userId, side);
+    onMoved();
   }
 
   async function confirmReady() {
@@ -121,7 +123,10 @@
     cursor: pointer;
     transition: flex 0.35s cubic-bezier(0.2, 1.1, 0.3, 1), background 0.2s;
   }
+  .slam-half.a { border-top: 4px solid var(--accent-blue-atoll); }
+  .slam-half.b { border-top: 4px solid var(--accent-fruit-dove); }
   .slam-half.chosen { flex: 1.6; background: var(--accent-blue-atoll); color: var(--on-accent-blue-atoll); }
+  .slam-half.b.chosen { background: var(--accent-fruit-dove); color: var(--on-accent-fruit-dove, #fff); }
   .slam-half.waiting { flex: 0.5; opacity: 0.5; }
 
   .or-pill {

@@ -64,6 +64,9 @@ export async function guardedGameWrite(gameId, computeUpdate, opts) {
   // 'aborted' is a deliberate no-op (double tap, partner already advanced).
   // Anything else means the player's action did NOT land — say so, rather
   // than leaving a button that looks dead.
+  if (res.ok && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('bt:game-write', { detail: res.row }));
+  }
   if (!res.ok && res.reason !== 'aborted') {
     const now = Date.now();
     if (now - lastFailToast > 4000) {
