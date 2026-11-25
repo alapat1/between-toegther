@@ -7,7 +7,7 @@
   export let roomCode = '';
   export let onCopyInvite = () => {};
   export let onStartWYR;   // (rounds) => void — actually sends an invite now, see Room.svelte
-  export let onStartTOD;   // (rounds, theme) => void
+  export let onStartTOD;   // (rounds, theme, mode) => void
   export let onStartSpin;  // (rounds) => void
   export let onStartFS;    // (rounds) => void
   export let onOpenScreeningRoom; // () => void — no ArcadeCabinet, opens directly
@@ -41,7 +41,7 @@
   {:else if picked === 'wyr'}
     <ArcadeCabinet title="would you rather" accent="var(--accent-blue-atoll)" onAccent="var(--on-accent-blue-atoll)" roundPresets={[5, 10, 20]} {partnerPresent} onStart={(rounds) => onStartWYR(rounds)} />
   {:else if picked === 'tod'}
-    <ArcadeCabinet title="truth or dare" accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" roundPresets={[6, 12, 20]} showHeatDial {partnerPresent} onStart={(rounds, heat) => onStartTOD(rounds, heat)} />
+    <ArcadeCabinet title="truth or dare" accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" roundPresets={[6, 12, 20]} showHeatDial showModeToggle {partnerPresent} onStart={(rounds, heat, mode) => onStartTOD(rounds, heat, mode)} />
   {:else if picked === 'spin'}
     <ArcadeCabinet title="spin" accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" roundPresets={[6, 10, 16]} {partnerPresent} onStart={(rounds) => onStartSpin(rounds)} />
   {:else if picked === 'fs'}

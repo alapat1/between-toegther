@@ -253,7 +253,7 @@
       const prompts = await fetchWyrPrompts(rounds);
       return { prompts, pips: [], totalRounds: rounds };
     }
-    if (gameType === 'tod') return todEngine.initialState(config.theme, rounds, config.firstTurnUserId, config.chooserUserId);
+    if (gameType === 'tod') return todEngine.initialState(config.theme, rounds, config.firstTurnUserId, config.chooserUserId, config.mode || 'self');
     if (gameType === 'spin') return spinEngine.initialState(rounds, config.firstSpinnerId);
     return fsEngine.initialState(rounds);
   }
@@ -275,8 +275,8 @@
   function proposeWYR(rounds) {
     proposeGame('wyr', rounds, {});
   }
-  function proposeTOD(rounds, theme) {
-    proposeGame('tod', rounds, { theme, firstTurnUserId: userId, chooserUserId: partner?.user_id });
+  function proposeTOD(rounds, theme, mode = 'self') {
+    proposeGame('tod', rounds, { theme, mode, firstTurnUserId: userId, chooserUserId: partner?.user_id });
   }
   function proposeSpin(rounds) {
     proposeGame('spin', rounds, { firstSpinnerId: userId });
@@ -476,7 +476,7 @@
           <button class="invite-btn decline" on:click={declineInvite}>cancel</button>
         </div>
       {:else}
-        <p class="invite-text">{partner?.display_name || 'they'} want{partner ? 's' : ''} to play <strong>{GAME_LABEL[invite.game_type] || invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme}{' · ' + invite.config.theme}{/if}</p>
+        <p class="invite-text">{partner?.display_name || 'they'} want{partner ? 's' : ''} to play <strong>{GAME_LABEL[invite.game_type] || invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme}{' · ' + invite.config.theme}{/if}{#if invite.config?.mode === 'dealer'}{' · pick for each other'}{/if}</p>
         <div class="row bottom">
           <button class="invite-btn decline" disabled={answeringInvite} on:click={declineInvite}>not now</button>
           <button class="invite-btn accept" disabled={answeringInvite} on:click={acceptInvite}>{answeringInvite ? 'starting…' : "let's go"}</button>

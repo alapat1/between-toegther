@@ -17,7 +17,9 @@
   ];
 
   $: s = game.state;
-  $: iAmChooser = s.chooser === userId;
+  $: iAmChooser = s.chooser === userId;   // the other player: judges dares
+  $: iAmPicker = engine.pickerOf(s) === userId;
+  $: selfMode = (s.mode || 'dealer') === 'self';
   $: iAmCurrentTurn = s.currentTurn === userId;
 
   let firedReactions = [];
@@ -36,14 +38,14 @@
   {#if s.phase === 'end'}
     <p class="status">that's the game — recap coming next.</p>
   {:else if s.phase === 'chooser_picks'}
-    {#if iAmChooser}
-      <p class="prompt-hint">pick for them</p>
+    {#if iAmPicker}
+      <p class="prompt-hint">{selfMode ? 'your turn — truth or dare?' : 'pick for them'}</p>
       <div class="row">
-        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.pickChoice(game, 'truth')}>truth</PlateButton>
-        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.pickChoice(game, 'dare')}>dare</PlateButton>
+        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.pickChoice(game, 'truth', userId)}>truth</PlateButton>
+        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.pickChoice(game, 'dare', userId)}>dare</PlateButton>
       </div>
     {:else}
-      <p class="status">they're picking for you…</p>
+      <p class="status">{selfMode ? "they're choosing truth or dare…" : "they're picking for you…"}</p>
     {/if}
   {:else if s.phase === 'prompt_active'}
     <div class="plate-stack">
@@ -82,7 +84,7 @@
 <style>
   .tod { padding: 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; text-align: center; min-height: 60vh; justify-content: center; }
   .meta {
-    display: flex; justify-content: space-between;
+    display: flex; justify-content: space-between; width: 100%;
     font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--text-soft);
   }

@@ -30,7 +30,7 @@
 
   function rematchConfig() {
     if (type === 'wyr') return { rounds: (s.prompts || []).length || s.totalRounds || 10, config: {} };
-    if (type === 'tod') return { rounds: s.totalRounds || 6, config: { theme: s.theme, firstTurnUserId: userId, chooserUserId: partnerId } };
+    if (type === 'tod') return { rounds: s.totalRounds || 6, config: { theme: s.theme, mode: s.mode || 'dealer', firstTurnUserId: userId, chooserUserId: partnerId } };
     if (type === 'spin') return { rounds: s.total_rounds || 6, config: { firstSpinnerId: userId } };
     return { rounds: s.totalRounds || 5, config: {} };
   }

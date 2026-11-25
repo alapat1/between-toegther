@@ -6,8 +6,15 @@
 import { fetchTodPrompt } from '../../engine/promptsRepo.js';
 import { guardedGameWrite } from '../../engine/session.js';
 
-export function initialState(theme, totalRounds, firstTurnUserId, chooserUserId) {
+// mode:
+//   'self'   (default) — whoever has to perform picks their OWN truth or dare.
+//   'dealer' — the other player picks for them ("pick for each other").
+// `chooser` is always the OTHER player: they judge dares (and pick, in dealer
+// mode). Games started before modes existed have no state.mode and keep the
+// old dealer behaviour.
+export function initialState(theme, totalRounds, firstTurnUserId, chooserUserId, mode = 'self') {
   return {
+    mode,
     theme,
     round: 0,
     totalRounds,
@@ -19,13 +26,20 @@ export function initialState(theme, totalRounds, firstTurnUserId, chooserUserId)
   };
 }
 
-export async function pickChoice(game, choice) {
+export function pickerOf(state) {
+  return (state.mode || 'dealer') === 'self' ? state.currentTurn : state.chooser;
+}
+
+export async function pickChoice(game, choice, userId) {
   const { theme, usedPrompts } = game.state;
   const tier = defaultTierFor(theme);
   const { id, text } = await fetchTodPrompt(theme, tier, choice, usedPrompts || []);
   return guardedGameWrite(game.id, (current) => {
     // Double-tap guard: only the picking phase can transition to a prompt.
     if (current.state.phase !== 'chooser_picks') return null;
+    // Guard rail: only the player whose pick it is can make it (a stale or
+    // tampered client can't pick for someone else).
+    if (userId && pickerOf(current.state) !== userId) return null;
     return {
     phase: 'prompt_active',
     state: {

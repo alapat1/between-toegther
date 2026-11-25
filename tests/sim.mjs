@@ -156,27 +156,35 @@ await test('Would You Rather: both pick (A=0 must work), both confirm -> advance
   assert.deepEqual(game(id).state.pips, ['clash', 'clash'], 'exactly one pip per round');
 });
 
-await test('Truth or Dare: roles rotate, dare needs judge, truth skips judge, ends', async (room) => {
-  const { game: g0 } = await startGame(room, 'tod', 4, tod.initialState('casual', 4, A, B));
-  const id = g0.id;
-  const performers = [];
-  for (let round = 0; round < 4; round++) {
-    const s0 = game(id).state;
-    performers.push(s0.currentTurn);
-    const choice = round % 2 ? 'dare' : 'truth';
-    await Promise.all([tod.pickChoice(snap(id), choice), tod.pickChoice(snap(id), choice)]);
-    assert.equal(game(id).state.phase, 'prompt_active');
-    assert.equal(game(id).state.usedPrompts.length, round + 1, 'double pick must not burn two prompts');
-    await Promise.all([tod.done(snap(id), s0.currentTurn), tod.done(snap(id), s0.currentTurn)]);
-    if (choice === 'dare') {
-      assert.equal(game(id).state.phase, 'judging');
-      await Promise.all([tod.judgeConfirm(snap(id), true), tod.judgeConfirm(snap(id), true)]);
+for (const mode of ['self', 'dealer']) {
+  await test(`Truth or Dare (${mode} mode): right player picks, turns rotate, dare needs judge, ends`, async (room) => {
+    const { game: g0 } = await startGame(room, 'tod', 4, tod.initialState('casual', 4, A, B, mode));
+    const id = g0.id;
+    const performers = [];
+    for (let round = 0; round < 4; round++) {
+      const s0 = game(id).state;
+      performers.push(s0.currentTurn);
+      const picker = tod.pickerOf(s0);
+      const notPicker = picker === A ? B : A;
+      assert.equal(picker, mode === 'self' ? s0.currentTurn : s0.chooser, 'picker follows the mode');
+      const choice = round % 2 ? 'dare' : 'truth';
+      // the wrong player cannot pick
+      await tod.pickChoice(snap(id), choice, notPicker);
+      assert.equal(game(id).state.phase, 'chooser_picks', 'wrong player pick is ignored');
+      await Promise.all([tod.pickChoice(snap(id), choice, picker), tod.pickChoice(snap(id), choice, picker)]);
+      assert.equal(game(id).state.phase, 'prompt_active');
+      assert.equal(game(id).state.usedPrompts.length, round + 1, 'double pick must not burn two prompts');
+      await Promise.all([tod.done(snap(id), s0.currentTurn), tod.done(snap(id), s0.currentTurn)]);
+      if (choice === 'dare') {
+        assert.equal(game(id).state.phase, 'judging');
+        await Promise.all([tod.judgeConfirm(snap(id), true), tod.judgeConfirm(snap(id), true)]);
+      }
     }
-  }
-  assert.deepEqual(performers, [A, B, A, B], 'turn alternates every round');
-  assert.equal(game(id).state.phase, 'end');
-  assert.ok(game(id).ended_at);
-});
+    assert.deepEqual(performers, [A, B, A, B], 'turn alternates every round');
+    assert.equal(game(id).state.phase, 'end');
+    assert.ok(game(id).ended_at);
+  });
+}
 
 await test('Spin: spinner rotates, only judge awards a point, double taps safe, ends', async (room) => {
   const { game: g0 } = await startGame(room, 'spin', 3, spin.initialState(3, A));
