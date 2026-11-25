@@ -1,9 +1,9 @@
 <script>
-  // Help, safety and privacy — plain-language, reachable from Settings and the start screen.
-  export let section = 'help'; // 'help' | 'safety' | 'privacy'
+  // Help and privacy — plain-language, reachable from Settings and the start screen.
+  export let section = 'help'; // 'help' | 'privacy'
   export let onClose;
 
-  const TABS = [['help', 'help'], ['safety', 'safety'], ['privacy', 'privacy']];
+  const TABS = [['help', 'help'], ['privacy', 'privacy']];
 
   const FAQ = [
     ['what is a space?', 'a private place for exactly two people. one of you opens it and shares the code or link; the other joins. games are only ever played between the two of you.'],
@@ -32,12 +32,6 @@
     {#each FAQ as [q, a]}
       <div class="item"><h3>{q}</h3><p>{a}</p></div>
     {/each}
-  {:else if section === 'safety'}
-    <div class="item"><h3>you’re always in control</h3><p>nothing starts without both of you agreeing. you can skip a truth or dare, pass on a spin prompt, or end any game from the menu — no explanation needed.</p></div>
-    <div class="item"><h3>content levels</h3><p>truth or dare has four levels: casual, playful, romantic and unfiltered. “unfiltered” is for adults who both want it. pick the level together, and it’s fine to choose a gentler one at any time.</p></div>
-    <div class="item"><h3>consent matters</h3><p>a dare is an invitation, not an obligation. if something doesn’t feel right, skip it. the other person is asked to respect that.</p></div>
-    <div class="item"><h3>leaving</h3><p>you can leave a space whenever you like from the menu. nobody else can see into your space — it only holds the two of you.</p></div>
-    <div class="item"><h3>for adults</h3><p>between &amp; together is meant for adults. if you’re under 18, please don’t use the unfiltered level.</p></div>
   {:else}
     <div class="item"><h3>what we keep</h3><p>your first name or nickname, your emoji look, the spaces you belong to, and the game state while you play (for example, which option you picked in would you rather). there are no accounts, passwords or email addresses.</p></div>
     <div class="item"><h3>who can see it</h3><p>only the two people in a space can see what happens in it. we don’t sell data, show ads, or run advertising trackers.</p></div>

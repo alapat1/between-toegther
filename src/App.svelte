@@ -126,7 +126,7 @@
     <Room code={roomCode} userId={user.id} />
   {/if}
   {#if !roomCode}
-    <button class="help-link" on:click={() => (infoOpen = true)}>help, safety &amp; privacy</button>
+    <button class="help-link" on:click={() => (infoOpen = true)}>help &amp; privacy</button>
   {/if}
   {/if}
   {#if infoOpen}<Info onClose={() => (infoOpen = false)} />{/if}

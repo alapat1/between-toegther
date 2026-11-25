@@ -55,7 +55,7 @@
   let hadGame = false;
   // Opening a link as someone who isn't in the space yet: ask before joining.
   let historyOpen = false;
-  let infoSection = null; // null | 'help' | 'safety' | 'privacy'
+  let infoSection = null; // null | 'help' | 'privacy'
   let howTo = false; // rules card open
   let awayLong = false; // partner gone for a few seconds mid-game
   let awayTimer = null;

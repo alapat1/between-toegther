@@ -119,7 +119,6 @@
   <div class="section">
     <p class="label">help</p>
     <button class="row-btn" on:click={() => onOpenInfo('help')}>how it works →</button>
-    <button class="row-btn" on:click={() => onOpenInfo('safety')}>safety &amp; content levels →</button>
     <button class="row-btn" on:click={() => onOpenInfo('privacy')}>privacy →</button>
   </div>
 
