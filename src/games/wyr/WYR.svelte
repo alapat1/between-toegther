@@ -12,7 +12,10 @@
 
   $: round = game.state.round;
   $: prompt = game.state.prompts[round];
-  $: myChoice = moves.find((m) => m.round === round && m.user_id === userId)?.choice;
+  // wyr_moves.choice is an integer (0 = a, 1 = b). Convert to 'a'/'b' here:
+  // comparing the raw integer to 'a'/'b' never matched, and 0 (side A) is falsy.
+  $: myMove = moves.find((m) => m.round === round && m.user_id === userId);
+  $: myChoice = myMove ? (myMove.choice === 0 ? 'a' : 'b') : undefined;
   $: reveal = bothChosen(moves, round, userId, partnerId);
   $: iAmReady = !!(game.state.readyForNext || {})[userId];
 
