@@ -3,10 +3,12 @@
   import PlateButton from '../../lib/PlateButton.svelte';
   import { buzz } from '../../engine/prefs.js';
   import * as engine from './engine.js';
+  import { sfx } from '../../engine/sound.js';
 
   export let game;
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
 
   $: s = game.state;
   $: iAmReady = !!(s.readyTaps || {})[userId];
@@ -22,6 +24,13 @@
   let transitioning = false;
   let ending = false;
   let lastRound = -1;
+  let endAttemptAt = 0;
+  let finalFlushed = false;
+  // Both phones write taps to the same row, so ending the round has to win a
+  // race against ~4-8 writes/second. Guard rails: slower tap flushes, one final
+  // flush at the buzzer, and ONE phone (the leader) closes the round first while
+  // the other only steps in as a fallback — they never fight each other.
+  $: isLeader = String(userId) < String(partnerId);
 
   // New round: the combo counter starts fresh (it used to carry the whole
   // previous round's count into the next one).
@@ -29,13 +38,26 @@
     lastRound = s.round;
     localTaps = 0;
     unflushed = 0;
+    finalFlushed = false;
+    endAttemptAt = 0;
   }
 
   $: timerPct = roundMs !== null ? Math.max(0, Math.min(100, (roundMs / engine.ROUND_DURATION_MS) * 100)) : 100;
 
+  let lastSecond = null;
+  let lastPhase = null;
+  let lastBlip = 0;
+  $: if (s.phase !== lastPhase) {
+    if (s.phase === 'playing') sfx('go');
+    if (s.phase === 'ended' || (lastPhase === 'playing' && s.phase === 'ready_gate')) sfx('win');
+    lastPhase = s.phase;
+  }
+
   function tick() {
     if (s.phase === 'countdown') {
       countdownMs = engine.msUntilPlay(s);
+      const sec = Math.ceil(countdownMs / 1000);
+      if (sec > 0 && sec !== lastSecond) { lastSecond = sec; sfx('tick'); }
       if (countdownMs <= 0 && !transitioning) {
         transitioning = true;
         engine.beginPlaying(game).finally(() => { transitioning = false; });
@@ -43,13 +65,31 @@
     } else if (s.phase === 'playing') {
       roundMs = engine.msLeftInRound(s);
       if (roundMs !== null && roundMs <= 0 && !ending) {
-        ending = true;
-        engine.endRound(game).finally(() => { ending = false; });
+        // Buzzer: send whatever taps are still queued, exactly once.
+        if (!finalFlushed) {
+          finalFlushed = true;
+          if (unflushed > 0) {
+            const n = unflushed;
+            unflushed = 0;
+            engine.flushTaps(game, userId, n).then((res) => { if (!res.ok && res.reason !== 'aborted') unflushed += n; });
+          }
+        }
+        // Leader closes the round after a short grace for the final flushes; the
+        // other phone only acts if that hasn't happened by then.
+        const grace = isLeader ? 1000 : 3000;
+        if (-roundMs >= grace && Date.now() >= endAttemptAt) {
+          ending = true;
+          engine.endRound(game)
+            .then((res) => { if (!res.ok && res.reason !== 'aborted') endAttemptAt = Date.now() + 600; })
+            .finally(() => { ending = false; });
+        }
       }
     }
   }
 
   function handleTap() {
+    const now = Date.now();
+    if (now - lastBlip > 70) { lastBlip = now; sfx('blip'); }
     localTaps += 1;
     unflushed += 1;
   }
@@ -57,12 +97,17 @@
   onMount(() => {
     tickTimer = setInterval(tick, 100);
     flushTimer = setInterval(() => {
+      if (roundMs !== null && roundMs <= 0) return; // the buzzer handles the last flush
       if (unflushed > 0) {
         const n = unflushed;
         unflushed = 0;
-        engine.flushTaps(game, userId, n);
+        // A failed flush must NOT drop the taps — put them back so the next
+        // interval retries instead of silently under-counting the round.
+        engine.flushTaps(game, userId, n).then((res) => {
+          if (!res.ok && res.reason !== 'aborted') unflushed += n;
+        });
       }
-    }, 250);
+    }, 500);
   });
   onDestroy(() => {
     clearInterval(tickTimer);
@@ -77,11 +122,11 @@
   </div>
 
   {#if s.phase === 'ended'}
-    <p class="status">match over.</p>
+    <p class="status" role="status">match over.</p>
   {:else if s.phase === 'ready_gate'}
-    <p class="status">tap when you're ready — round only starts once you both are.</p>
+    <p class="status" role="status">tap when you're ready — round only starts once you both are.</p>
     <PlateButton accent={iAmReady ? 'var(--surface-2)' : 'var(--accent-blue-atoll)'} onAccent="var(--on-accent-blue-atoll)" disabled={iAmReady} on:click={() => { buzz(); engine.tapReady(game, userId, partnerId); }}>
-      {iAmReady ? 'waiting on them…' : "i'm ready"}
+      {iAmReady ? `waiting on ${partnerName}…` : "i'm ready"}
     </PlateButton>
     <div class="lights"><span class="light" class:on={iAmReady}></span><span class="light" class:on={partnerReady}></span></div>
   {:else if s.phase === 'countdown'}
@@ -105,7 +150,7 @@
     <div class="live-row">
       <span class="live-cell you">you · {localTaps}</span>
       <span class="live-time">{roundMs !== null ? Math.max(0, Math.ceil(roundMs / 1000)) : ''}s</span>
-      <span class="live-cell them">them · {partnerLiveTaps}</span>
+      <span class="live-cell them">{partnerName} · {partnerLiveTaps}</span>
     </div>
   {/if}
 </div>

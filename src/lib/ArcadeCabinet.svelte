@@ -11,17 +11,20 @@
   export let onAccent = 'var(--on-accent-orange-pop)';
   export let roundPresets = [6, 12, 20];
   export let showHeatDial = false;
+  export let showModeToggle = false; // truth or dare: who picks truth/dare
   export let partnerPresent = false;
+  export let partnerName = 'your person';
   export let onStart; // (rounds, heat) => void — sends an invite, doesn't start directly
 
   let rounds = roundPresets[1] ?? roundPresets[0];
   let heat = 1; // 0=casual .. 3=unfiltered
   const heatLabels = ['casual', 'playful', 'romantic', 'unfiltered'];
+  let mode = 'self'; // 'self' | 'dealer'
   let sent = false;
 
   function sendInvite() {
     sent = true;
-    if (partnerPresent) onStart(rounds, heatLabels[heat]);
+    if (partnerPresent) onStart(rounds, heatLabels[heat], mode);
   }
 </script>
 
@@ -42,17 +45,38 @@
     </div>
   {/if}
 
+  {#if showModeToggle}
+    <div class="mode-row" role="group" aria-label="who picks truth or dare">
+      <button type="button" class="mode-opt" class:active={mode === 'self'} aria-pressed={mode === 'self'} on:click={() => (mode = 'self')}>
+        <strong>pick your own</strong><span>you choose truth or dare for yourself</span>
+      </button>
+      <button type="button" class="mode-opt" class:active={mode === 'dealer'} aria-pressed={mode === 'dealer'} on:click={() => (mode = 'dealer')}>
+        <strong>pick for each other</strong><span>{partnerName} chooses for you, you choose for {partnerName}</span>
+      </button>
+    </div>
+  {/if}
+
   <div class="ready-lights">
-    <span class="light" class:on={sent}></span>
-    <span class="light" class:on={partnerPresent}></span>
+    <span class="light-label"><span class="light" class:on={sent}></span>invite sent</span>
+    <span class="light-label"><span class="light" class:on={partnerPresent}></span>{partnerName} is here</span>
   </div>
 
   <PlateButton accent={partnerPresent ? accent : 'var(--surface-2)'} onAccent={partnerPresent ? onAccent : 'var(--text-soft)'} disabled={!partnerPresent} on:click={sendInvite}>
-    {partnerPresent ? 'invite them' : "waiting for partner…"}
+    {partnerPresent ? `invite ${partnerName}` : 'waiting for someone to join…'}
   </PlateButton>
 </div>
 
 <style>
+  .mode-row { display: flex; flex-direction: column; gap: 8px; }
+  .mode-opt {
+    display: flex; flex-direction: column; gap: 2px; text-align: left; cursor: pointer;
+    background: var(--surface); color: var(--text); border: 2px solid transparent; padding: 12px 14px;
+    font-family: var(--font-body);
+  }
+  .mode-opt strong { font-family: var(--font-display); font-size: 13px; }
+  .mode-opt span { font-size: 12px; color: var(--text-soft); }
+  .mode-opt.active { border-color: var(--cab-accent); }
+  .light-label { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-soft); }
   .cabinet {
     border: 2px solid var(--cab-accent);
     padding: 20px;
@@ -72,7 +96,7 @@
   .dial-row { display: flex; align-items: center; gap: 10px; }
   .dial-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-soft); flex: 1; }
   .dial-readout { font-family: var(--font-mono); font-size: 12px; min-width: 60px; text-align: right; }
-  .ready-lights { display: flex; gap: 8px; }
+  .ready-lights { display: flex; gap: 18px; }
   .light { width: 10px; height: 10px; border-radius: 50%; background: var(--surface-2); }
   .light.on { background: var(--accent-summer-green); }
 </style>

@@ -33,6 +33,8 @@
   }
 </script>
 
+<svelte:window on:keydown={(e) => e.key === 'Escape' && onClose()} />
+<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
 <div class="scrim" on:click={onClose}></div>
 <div class="sheet">
   <p class="title">save "{candidate.title}"</p>

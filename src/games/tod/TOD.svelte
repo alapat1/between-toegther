@@ -4,10 +4,13 @@
   // (locked 2026-07-09): DYING, CAUGHT, RESPECT, MERCY.
   import PlateButton from '../../lib/PlateButton.svelte';
   import * as engine from './engine.js';
+  import { fly } from 'svelte/transition';
+  import { reducedMotion } from '../../engine/prefs.js';
 
   export let game;
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
 
   const REACTIONS = [
     { key: 'dying', label: '😂 dying' },
@@ -17,7 +20,9 @@
   ];
 
   $: s = game.state;
-  $: iAmChooser = s.chooser === userId;
+  $: iAmChooser = s.chooser === userId;   // the other player: judges dares
+  $: iAmPicker = engine.pickerOf(s) === userId;
+  $: selfMode = (s.mode || 'dealer') === 'self';
   $: iAmCurrentTurn = s.currentTurn === userId;
 
   let firedReactions = [];
@@ -27,23 +32,24 @@
   }
 </script>
 
-<div class="tod">
+{#key s.phase + ":" + s.round}
+<div class="tod" in:fly={{ y: $reducedMotion ? 0 : 14, duration: $reducedMotion ? 0 : 260 }}>
   <div class="meta">
     <span>{s.theme}</span>
     <span>{s.round + 1}/{s.totalRounds}</span>
   </div>
 
   {#if s.phase === 'end'}
-    <p class="status">that's the game — recap coming next.</p>
+    <p class="status" role="status">that's the game — recap coming next.</p>
   {:else if s.phase === 'chooser_picks'}
-    {#if iAmChooser}
-      <p class="prompt-hint">pick for them</p>
+    {#if iAmPicker}
+      <p class="prompt-hint">{selfMode ? 'your turn — truth or dare?' : `pick for ${partnerName}`}</p>
       <div class="row">
-        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.pickChoice(game, 'truth')}>truth</PlateButton>
-        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.pickChoice(game, 'dare')}>dare</PlateButton>
+        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.pickChoice(game, 'truth', userId)}>truth</PlateButton>
+        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.pickChoice(game, 'dare', userId)}>dare</PlateButton>
       </div>
     {:else}
-      <p class="status">they're picking for you…</p>
+      <p class="status" role="status">{selfMode ? `${partnerName} is choosing truth or dare…` : `${partnerName} is picking for you…`}</p>
     {/if}
   {:else if s.phase === 'prompt_active'}
     <div class="plate-stack">
@@ -55,7 +61,7 @@
         <PlateButton accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" on:click={() => engine.done(game, userId)}>done ✓</PlateButton>
       </div>
     {:else}
-      <p class="status">waiting for them to finish…</p>
+      <p class="status" role="status">waiting for {partnerName} to finish…</p>
       <div class="reactions">
         {#each REACTIONS as r}
           <button class="reaction-btn" on:click={() => fireReaction(r.key)}>{r.label}</button>
@@ -68,25 +74,27 @@
   {:else if s.phase === 'judging'}
     <p class="prompt-card dim">{s.prompt}</p>
     {#if iAmChooser}
-      <p class="status">did they actually do it?</p>
+      <p class="status" role="status">did {partnerName} actually do it?</p>
       <div class="row">
-        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.judgeConfirm(game, false)}>NOPE stamp</PlateButton>
-        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.judgeConfirm(game, true)}>confirm</PlateButton>
+        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.judgeConfirm(game, false)}>not quite</PlateButton>
+        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.judgeConfirm(game, true)}>yes, they did</PlateButton>
       </div>
     {:else}
-      <p class="status">waiting on the judge's call…</p>
+      <p class="status" role="status">{partnerName} is deciding…</p>
     {/if}
   {/if}
 </div>
+{/key}
 
 <style>
-  .tod { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .tod { padding: 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; text-align: center; min-height: 60vh; justify-content: center; }
   .meta {
-    display: flex; justify-content: space-between;
+    display: flex; justify-content: space-between; width: 100%;
     font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--text-soft);
   }
-  .row { display: flex; gap: 12px; }
+  .row { display: flex; gap: 12px; width: 100%; }
+  .row > :global(.plate) { flex: 1; }
   .plate-stack { position: relative; }
   .prompt-card {
     background: var(--surface);

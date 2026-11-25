@@ -9,14 +9,33 @@
   <meta name="apple-mobile-web-app-title" content="b&amp;t" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
   <title>between &amp; together</title>
+  <meta name="description" content="A private space for two. Invite one person and play would you rather, truth or dare, spin the wheel and finger smash together, live." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="between &amp; together" />
+  <meta property="og:title" content="between &amp; together — a space for two" />
+  <meta property="og:description" content="A private space for two. Invite one person and play together, live." />
+  <meta property="og:image" content="https://between-together.pages.dev/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="between &amp; together — a space for two" />
+  <meta name="twitter:description" content="A private space for two. Invite one person and play together, live." />
+  <meta name="twitter:image" content="https://between-together.pages.dev/og.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=Space+Grotesk:wght@300..700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/styles/tokens.css" />
 </head>
 <body>
+  <div id="boot" style="position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#100D0C;color:#F2EDE8;font-family:system-ui,sans-serif">
+    <div style="display:flex"><span style="width:56px;height:56px;border-radius:50%;background:#00B1D2;margin-right:-24px"></span><span style="width:56px;height:56px;border-radius:50%;background:#CF5C78;mix-blend-mode:screen"></span></div>
+    <div style="font-weight:800;font-size:20px;margin-top:10px">between &amp; together</div>
+    <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8A8580">a space for two</div>
+  </div>
+  <noscript><p style="padding:24px;color:#F2EDE8">between &amp; together needs JavaScript to run.</p></noscript>
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
 </body>

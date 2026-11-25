@@ -4,11 +4,16 @@
   // Implements flows.md §2.2: split-slam choice, heat-shimmer waiting state,
   // flip reveal, pip trace strip, wait-for-both advance (no auto-timer).
   import { makeChoice, bothChosen, markReadyForNext } from './engine.js';
+  import { sfx } from '../../engine/sound.js';
+  import { fly } from 'svelte/transition';
+  import { reducedMotion } from '../../engine/prefs.js';
 
   export let game;        // game_sessions row (state.prompts, state.round, state.pips, state.readyForNext)
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
   export let moves = [];  // wyr_moves rows for this game
+  export let onMoved = () => {}; // refetch moves right after my own pick (don't wait for the realtime echo)
 
   $: round = game.state.round;
   $: prompt = game.state.prompts[round];
@@ -19,9 +24,13 @@
   $: reveal = bothChosen(moves, round, userId, partnerId);
   $: iAmReady = !!(game.state.readyForNext || {})[userId];
 
+  let lastRevealRound = -1;
+  $: if (reveal && lastRevealRound !== round) { lastRevealRound = round; sfx(reveal.mine === reveal.theirs ? 'match' : 'clash'); }
+
   async function choose(side) {
     if (myChoice) return;
     await makeChoice(game, userId, side);
+    onMoved();
   }
 
   async function confirmReady() {
@@ -31,7 +40,9 @@
   }
 </script>
 
-<div class="wyr">
+{#key round}
+<div class="wyr" in:fly={{ y: $reducedMotion ? 0 : 14, duration: $reducedMotion ? 0 : 260 }}>
+  <p class="round-label">round {round + 1} of {game.state.prompts.length}</p>
   <div class="pip-strip" aria-label="round history">
     {#each game.state.pips || [] as pip}
       <span class="pip {pip}"></span>
@@ -60,21 +71,27 @@
         {prompt[1]}
       </button>
     </div>
+    {#if !myChoice}
+      <p class="hint">tap the one you'd pick — {partnerName} can't see it until you've both chosen</p>
+    {/if}
     {#if myChoice}
-      <p class="waiting-label">waiting on them<span class="shimmer"></span></p>
+      <p class="waiting-label" role="status">waiting on {partnerName}<span class="shimmer"></span></p>
     {/if}
   {:else}
     <div class="reveal" class:match={reveal.mine === reveal.theirs}>
       <p class="reveal-label">{reveal.mine === reveal.theirs ? 'you matched' : 'you clashed'}</p>
-      <p class="reveal-choices">you: {prompt[reveal.mine === 'a' ? 0 : 1]} · them: {prompt[reveal.theirs === 'a' ? 0 : 1]}</p>
+      <p class="reveal-choices">you: {prompt[reveal.mine === 'a' ? 0 : 1]} · {partnerName}: {prompt[reveal.theirs === 'a' ? 0 : 1]}</p>
       <button class="ready-btn" class:done={iAmReady} on:click={confirmReady} disabled={iAmReady}>
-        {iAmReady ? 'waiting on them…' : 'next round'}
+        {iAmReady ? `waiting on ${partnerName}…` : 'next round'}
       </button>
     </div>
   {/if}
 </div>
+{/key}
 
 <style>
+  .round-label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); margin: 0; text-align: center; }
+  .hint { font-size: 13px; color: var(--text-soft); text-align: center; margin: 0; }
   .wyr {
     display: flex;
     flex-direction: column;
@@ -115,7 +132,10 @@
     cursor: pointer;
     transition: flex 0.35s cubic-bezier(0.2, 1.1, 0.3, 1), background 0.2s;
   }
+  .slam-half.a { border-top: 4px solid var(--accent-blue-atoll); }
+  .slam-half.b { border-top: 4px solid var(--accent-fruit-dove); }
   .slam-half.chosen { flex: 1.6; background: var(--accent-blue-atoll); color: var(--on-accent-blue-atoll); }
+  .slam-half.b.chosen { background: var(--accent-fruit-dove); color: var(--on-accent-fruit-dove, #fff); }
   .slam-half.waiting { flex: 0.5; opacity: 0.5; }
 
   .or-pill {

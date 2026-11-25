@@ -3,7 +3,9 @@
 // every game (present and future) shares one implementation instead of each
 // screen re-deriving its own join/rejoin/resume logic.
 import { sb } from './supabase.js';
+import { catchUpOnSubscribe } from './connection.js';
 import { guardedWrite } from './guardedWrite.js';
+import { toastError } from './toast.js';
 
 export async function joinRoomByCode(code) {
   // Server-side RPC (already fixed 2026-06-20) — locks room SELECT to
@@ -57,9 +59,24 @@ export async function startGame(roomId, type, rounds, initialState) {
  * behavior (sync-root-cause-analysis.md S3/S4) is automatic instead of
  * something each game has to remember to implement.
  */
-export function guardedGameWrite(gameId, computeUpdate, opts) {
-  return guardedWrite('game_sessions', gameId, computeUpdate, opts);
+export async function guardedGameWrite(gameId, computeUpdate, opts) {
+  const res = await guardedWrite('game_sessions', gameId, computeUpdate, opts);
+  // 'aborted' is a deliberate no-op (double tap, partner already advanced).
+  // Anything else means the player's action did NOT land — say so, rather
+  // than leaving a button that looks dead.
+  if (res.ok && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('bt:game-write', { detail: res.row }));
+  }
+  if (!res.ok && res.reason !== 'aborted') {
+    const now = Date.now();
+    if (now - lastFailToast > 4000) {
+      lastFailToast = now;
+      toastError(navigator.onLine === false ? "you're offline — reconnect and try again" : 'connection hiccup — tap again');
+    }
+  }
+  return res;
 }
+let lastFailToast = 0;
 
 /**
  * Realtime channel lifecycle with the fix S1 called for: a full teardown +
@@ -75,7 +92,7 @@ export function subscribeToGame(gameId, onChange) {
     channel = sb
       .channel(`game_sessions:${gameId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameId}` }, onChange)
-      .subscribe();
+      .subscribe(catchUpOnSubscribe(onChange));
   }
 
   function teardownAndResubscribe() {

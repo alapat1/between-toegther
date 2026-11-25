@@ -2,12 +2,15 @@
   // flows.md §2.5 — orbit hub arrangement. Simplified to a row for this pass
   // (no orbit physics yet); picking a game opens its ArcadeCabinet.
   import ArcadeCabinet from './ArcadeCabinet.svelte';
+  import InviteShare from './InviteShare.svelte';
+  import InstallHint from './InstallHint.svelte';
 
   export let partnerPresent;
+  export let partnerName = 'your person';
   export let roomCode = '';
   export let onCopyInvite = () => {};
   export let onStartWYR;   // (rounds) => void — actually sends an invite now, see Room.svelte
-  export let onStartTOD;   // (rounds, theme) => void
+  export let onStartTOD;   // (rounds, theme, mode) => void
   export let onStartSpin;  // (rounds) => void
   export let onStartFS;    // (rounds) => void
   export let onOpenScreeningRoom; // () => void — no ArcadeCabinet, opens directly
@@ -21,12 +24,9 @@
 <div class="lobby">
   {#if !partnerPresent}
     <div class="solo-card">
-      <p class="solo-title">it's just you here so far</p>
-      <p class="solo-sub">this space comes alive when they join — send them the code.</p>
-      <div class="solo-row">
-        <span class="solo-code">{roomCode}</span>
-        <button class="solo-copy" on:click={onCopyInvite}>copy invite link</button>
-      </div>
+      <p class="solo-title">you're the first one here</p>
+      <p class="solo-sub" role="status">share this with one person. the games unlock the moment they join.</p>
+      <InviteShare code={roomCode} />
     </div>
   {/if}
   {#if !picked}
@@ -39,15 +39,16 @@
       <button class="orbit-tile wide" style="--tile-accent: var(--accent-summer-green);" on:click={onOpenScreeningRoom}>screening room</button>
     </div>
   {:else if picked === 'wyr'}
-    <ArcadeCabinet title="would you rather" accent="var(--accent-blue-atoll)" onAccent="var(--on-accent-blue-atoll)" roundPresets={[5, 10, 20]} {partnerPresent} onStart={(rounds) => onStartWYR(rounds)} />
+    <ArcadeCabinet title="would you rather" accent="var(--accent-blue-atoll)" onAccent="var(--on-accent-blue-atoll)" roundPresets={[5, 10, 20]} {partnerPresent} {partnerName} onStart={(rounds) => onStartWYR(rounds)} />
   {:else if picked === 'tod'}
-    <ArcadeCabinet title="truth or dare" accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" roundPresets={[6, 12, 20]} showHeatDial {partnerPresent} onStart={(rounds, heat) => onStartTOD(rounds, heat)} />
+    <ArcadeCabinet title="truth or dare" accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" roundPresets={[6, 12, 20]} showHeatDial showModeToggle {partnerPresent} {partnerName} onStart={(rounds, heat, mode) => onStartTOD(rounds, heat, mode)} />
   {:else if picked === 'spin'}
-    <ArcadeCabinet title="spin" accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" roundPresets={[6, 10, 16]} {partnerPresent} onStart={(rounds) => onStartSpin(rounds)} />
+    <ArcadeCabinet title="spin" accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" roundPresets={[6, 10, 16]} {partnerPresent} {partnerName} onStart={(rounds) => onStartSpin(rounds)} />
   {:else if picked === 'fs'}
-    <ArcadeCabinet title="finger smash" accent="var(--accent-orange-pop)" onAccent="var(--on-accent-orange-pop)" roundPresets={[3, 5, 9]} {partnerPresent} onStart={(rounds) => onStartFS(rounds)} />
+    <ArcadeCabinet title="finger smash" accent="var(--accent-orange-pop)" onAccent="var(--on-accent-orange-pop)" roundPresets={[3, 5, 9]} {partnerPresent} {partnerName} onStart={(rounds) => onStartFS(rounds)} />
   {/if}
 </div>
+<InstallHint />
 
 <style>
   .lobby { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
