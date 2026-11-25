@@ -13,6 +13,7 @@
   export let showHeatDial = false;
   export let showModeToggle = false; // truth or dare: who picks truth/dare
   export let partnerPresent = false;
+  export let partnerName = 'your person';
   export let onStart; // (rounds, heat) => void — sends an invite, doesn't start directly
 
   let rounds = roundPresets[1] ?? roundPresets[0];
@@ -50,18 +51,18 @@
         <strong>pick your own</strong><span>you choose truth or dare for yourself</span>
       </button>
       <button type="button" class="mode-opt" class:active={mode === 'dealer'} aria-pressed={mode === 'dealer'} on:click={() => (mode = 'dealer')}>
-        <strong>pick for each other</strong><span>they choose for you, you choose for them</span>
+        <strong>pick for each other</strong><span>{partnerName} chooses for you, you choose for {partnerName}</span>
       </button>
     </div>
   {/if}
 
   <div class="ready-lights">
     <span class="light-label"><span class="light" class:on={sent}></span>invite sent</span>
-    <span class="light-label"><span class="light" class:on={partnerPresent}></span>they're here</span>
+    <span class="light-label"><span class="light" class:on={partnerPresent}></span>{partnerName} is here</span>
   </div>
 
   <PlateButton accent={partnerPresent ? accent : 'var(--surface-2)'} onAccent={partnerPresent ? onAccent : 'var(--text-soft)'} disabled={!partnerPresent} on:click={sendInvite}>
-    {partnerPresent ? 'invite them' : "waiting for partner…"}
+    {partnerPresent ? `invite ${partnerName}` : 'waiting for someone to join…'}
   </PlateButton>
 </div>
 

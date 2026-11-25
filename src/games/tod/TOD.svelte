@@ -8,6 +8,7 @@
   export let game;
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
 
   const REACTIONS = [
     { key: 'dying', label: '😂 dying' },
@@ -36,16 +37,16 @@
   </div>
 
   {#if s.phase === 'end'}
-    <p class="status">that's the game — recap coming next.</p>
+    <p class="status" role="status">that's the game — recap coming next.</p>
   {:else if s.phase === 'chooser_picks'}
     {#if iAmPicker}
-      <p class="prompt-hint">{selfMode ? 'your turn — truth or dare?' : 'pick for them'}</p>
+      <p class="prompt-hint">{selfMode ? 'your turn — truth or dare?' : `pick for ${partnerName}`}</p>
       <div class="row">
         <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.pickChoice(game, 'truth', userId)}>truth</PlateButton>
         <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.pickChoice(game, 'dare', userId)}>dare</PlateButton>
       </div>
     {:else}
-      <p class="status">{selfMode ? "they're choosing truth or dare…" : "they're picking for you…"}</p>
+      <p class="status" role="status">{selfMode ? `${partnerName} is choosing truth or dare…` : `${partnerName} is picking for you…`}</p>
     {/if}
   {:else if s.phase === 'prompt_active'}
     <div class="plate-stack">
@@ -57,7 +58,7 @@
         <PlateButton accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" on:click={() => engine.done(game, userId)}>done ✓</PlateButton>
       </div>
     {:else}
-      <p class="status">waiting for them to finish…</p>
+      <p class="status" role="status">waiting for {partnerName} to finish…</p>
       <div class="reactions">
         {#each REACTIONS as r}
           <button class="reaction-btn" on:click={() => fireReaction(r.key)}>{r.label}</button>
@@ -70,13 +71,13 @@
   {:else if s.phase === 'judging'}
     <p class="prompt-card dim">{s.prompt}</p>
     {#if iAmChooser}
-      <p class="status">did they actually do it?</p>
+      <p class="status" role="status">did {partnerName} actually do it?</p>
       <div class="row">
-        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.judgeConfirm(game, false)}>NOPE stamp</PlateButton>
-        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.judgeConfirm(game, true)}>confirm</PlateButton>
+        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.judgeConfirm(game, false)}>not quite</PlateButton>
+        <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.judgeConfirm(game, true)}>yes, they did</PlateButton>
       </div>
     {:else}
-      <p class="status">waiting on the judge's call…</p>
+      <p class="status" role="status">{partnerName} is deciding…</p>
     {/if}
   {/if}
 </div>

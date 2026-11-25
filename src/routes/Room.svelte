@@ -18,6 +18,8 @@
   import { confirm } from '../engine/confirm.js';
   import { buzz } from '../engine/prefs.js';
   import { online, catchUpOnSubscribe } from '../engine/connection.js';
+  import { nameOr } from '../engine/copy.js';
+  import { focusOnMount } from '../engine/a11y.js';
   import * as todEngine from '../games/tod/engine.js';
   import * as spinEngine from '../games/spin/engine.js';
   import * as fsEngine from '../games/fingersmash/engine.js';
@@ -49,6 +51,7 @@
   let hadGame = false;
 
   $: partner = room ? partnerOf(room.members, userId) : null;
+  $: partnerName = nameOr(partner?.display_name);
   $: iAmInviter = invite && invite.invited_by === userId;
   $: partnerStatus = partner ? (peers[partner.user_id] || 'away') : null;
   $: myView = game ? 'game' : screeningOpen ? 'screening' : 'lobby';
@@ -164,7 +167,7 @@
     if (presence) presence.unsubscribe();
     presence = joinPresence(room.id, userId, myView, (p) => { peers = p; }, () => {
       buzz([80, 40, 80]);
-      toast(`${partner?.display_name || 'they'} nudged you — your move`, 'info');
+      toast(`${partnerName} nudged you — your move`, 'info');
     });
   }
 
@@ -356,7 +359,7 @@
   async function doLeaveRoom() {
     menuOpen = false;
     settingsOpen = false;
-    if (!(await confirm('leave this space? your partner keeps it, and you can rejoin with the code.', 'leave'))) return;
+    if (!(await confirm(`leave this space? ${partner ? partnerName + ' keeps it, and' : 'you'} can rejoin with the code.`, 'leave'))) return;
     const res = await leaveRoom(room.id, userId);
     if (!res.ok) { toastError("couldn't leave — try again"); return; }
     window.location.hash = '';
@@ -415,13 +418,13 @@
   {/if}
   <div class="room-header">
     {#if renaming}
-      <input class="name-input" bind:value={nameDraft} on:keydown={(e) => e.key === 'Enter' && saveRename()} on:blur={saveRename} autofocus />
+      <input class="name-input" bind:value={nameDraft} on:keydown={(e) => e.key === 'Enter' && saveRename()} on:blur={saveRename} use:focusOnMount aria-label="space name" />
     {:else}
       <button class="name-btn" on:click={startRenaming}>{room.display_name || `room ${room.code}`}</button>
     {/if}
     <span class="presence-label">
       {#if !partner}
-        waiting for partner…
+        waiting for someone to join
       {:else if partnerStatus === 'away'}
         {partner.display_name} · away
       {:else if partnerStatus === 'screening'}
@@ -434,6 +437,7 @@
   </div>
 
   {#if menuOpen}
+    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="menu-scrim" on:click={() => (menuOpen = false)}></div>
     <div class="menu">
       <button class="menu-item" on:click={copyInviteLink}>copy invite link</button>
@@ -461,22 +465,22 @@
       onLeaveRoom={doLeaveRoom}
     />
   {:else if game && game.game_type === 'wyr'}
-    <WYR {game} {userId} partnerId={partner?.user_id} {moves} onMoved={loadMoves} />
+    <WYR {game} {userId} partnerId={partner?.user_id} {partnerName} {moves} onMoved={loadMoves} />
   {:else if game && game.game_type === 'tod'}
-    <TOD {game} {userId} partnerId={partner?.user_id} />
+    <TOD {game} {userId} partnerId={partner?.user_id} {partnerName} />
   {:else if game && game.game_type === 'spin'}
-    <Spin {game} {userId} partnerId={partner?.user_id} />
+    <Spin {game} {userId} partnerId={partner?.user_id} {partnerName} />
   {:else if game && game.game_type === 'fs'}
-    <FingerSmash {game} {userId} partnerId={partner?.user_id} />
+    <FingerSmash {game} {userId} partnerId={partner?.user_id} {partnerName} />
   {:else if invite}
     <div class="invite-card">
       {#if iAmInviter}
-        <p class="invite-text">waiting on {partner?.display_name || 'them'} to answer your {invite.game_type} invite…</p>
+        <p class="invite-text">waiting on {partnerName} to answer your {GAME_LABEL[invite.game_type] || invite.game_type} invite…</p>
         <div class="row bottom">
           <button class="invite-btn decline" on:click={declineInvite}>cancel</button>
         </div>
       {:else}
-        <p class="invite-text">{partner?.display_name || 'they'} want{partner ? 's' : ''} to play <strong>{GAME_LABEL[invite.game_type] || invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme}{' · ' + invite.config.theme}{/if}{#if invite.config?.mode === 'dealer'}{' · pick for each other'}{/if}</p>
+        <p class="invite-text">{partnerName} wants to play <strong>{GAME_LABEL[invite.game_type] || invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme}{' · ' + invite.config.theme}{/if}{#if invite.config?.mode === 'dealer'}{' · pick for each other'}{/if}</p>
         <div class="row bottom">
           <button class="invite-btn decline" disabled={answeringInvite} on:click={declineInvite}>not now</button>
           <button class="invite-btn accept" disabled={answeringInvite} on:click={acceptInvite}>{answeringInvite ? 'starting…' : "let's go"}</button>
@@ -488,7 +492,7 @@
       game={recap}
       {userId}
       partnerId={partner?.user_id}
-      partnerName={partner?.display_name || 'them'}
+      {partnerName}
       onRematch={rematchGame}
       onDone={() => (recap = null)}
     />
@@ -498,6 +502,7 @@
   {:else}
     <Lobby
       partnerPresent={!!partner}
+      {partnerName}
       roomCode={room.code}
       onCopyInvite={copyInviteLink}
       onStartWYR={proposeWYR}

@@ -7,6 +7,7 @@
   export let game;
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
 
   $: s = game.state;
   $: iAmSpinner = s.spinner_id === userId;
@@ -28,7 +29,7 @@
   </div>
 
   {#if s.phase === 'ended'}
-    <p class="status">that's the wheel — recap coming next.</p>
+    <p class="status" role="status">that's the wheel — recap coming next.</p>
   {:else if s.phase === 'spinning'}
     <div class="wheel-chip" class:spinning class:idle={!spinning}>🎡</div>
     {#if iAmSpinner}
@@ -36,7 +37,7 @@
         {spinning ? 'spinning…' : 'spin'}
       </PlateButton>
     {:else}
-      <p class="status">they're spinning…</p>
+      <p class="status" role="status">{partnerName} is spinning…</p>
     {/if}
   {:else if s.phase === 'prompt'}
     <div class="wheel-chip small">🎡</div>
@@ -47,16 +48,16 @@
           i did it
         </PlateButton>
       {:else}
-        <p class="status">waiting on their call…</p>
+        <p class="status" role="status">waiting on {partnerName}'s call…</p>
       {/if}
     {:else if s.spinner_done}
-      <p class="status">did they actually do it?</p>
+      <p class="status" role="status">did {partnerName} actually do it?</p>
       <div class="row">
-        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.judge(game, 'didnt', otherUserId)}>didn't</PlateButton>
+        <PlateButton accent="var(--accent-fruit-dove)" onAccent="var(--on-accent-fruit-dove)" on:click={() => engine.judge(game, 'didnt', otherUserId)}>not quite</PlateButton>
         <PlateButton accent="var(--accent-summer-green)" onAccent="var(--on-accent-summer-green)" on:click={() => engine.judge(game, 'did', otherUserId)}>did it ✓</PlateButton>
       </div>
     {:else}
-      <p class="status">they're on it — you'll judge when they're done</p>
+      <p class="status" role="status">{partnerName} is on it — you'll judge when they're done</p>
     {/if}
   {/if}
 </div>

@@ -7,6 +7,7 @@
   export let game;
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
 
   $: s = game.state;
   $: iAmReady = !!(s.readyTaps || {})[userId];
@@ -81,11 +82,11 @@
   </div>
 
   {#if s.phase === 'ended'}
-    <p class="status">match over.</p>
+    <p class="status" role="status">match over.</p>
   {:else if s.phase === 'ready_gate'}
-    <p class="status">tap when you're ready — round only starts once you both are.</p>
+    <p class="status" role="status">tap when you're ready — round only starts once you both are.</p>
     <PlateButton accent={iAmReady ? 'var(--surface-2)' : 'var(--accent-blue-atoll)'} onAccent="var(--on-accent-blue-atoll)" disabled={iAmReady} on:click={() => { buzz(); engine.tapReady(game, userId, partnerId); }}>
-      {iAmReady ? 'waiting on them…' : "i'm ready"}
+      {iAmReady ? `waiting on ${partnerName}…` : "i'm ready"}
     </PlateButton>
     <div class="lights"><span class="light" class:on={iAmReady}></span><span class="light" class:on={partnerReady}></span></div>
   {:else if s.phase === 'countdown'}
@@ -109,7 +110,7 @@
     <div class="live-row">
       <span class="live-cell you">you · {localTaps}</span>
       <span class="live-time">{roundMs !== null ? Math.max(0, Math.ceil(roundMs / 1000)) : ''}s</span>
-      <span class="live-cell them">them · {partnerLiveTaps}</span>
+      <span class="live-cell them">{partnerName} · {partnerLiveTaps}</span>
     </div>
   {/if}
 </div>

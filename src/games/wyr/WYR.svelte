@@ -8,6 +8,7 @@
   export let game;        // game_sessions row (state.prompts, state.round, state.pips, state.readyForNext)
   export let userId;
   export let partnerId;
+  export let partnerName = 'your person';
   export let moves = [];  // wyr_moves rows for this game
   export let onMoved = () => {}; // refetch moves right after my own pick (don't wait for the realtime echo)
 
@@ -64,17 +65,17 @@
       </button>
     </div>
     {#if !myChoice}
-      <p class="hint">tap the one you'd pick — they can't see it until you both have</p>
+      <p class="hint">tap the one you'd pick — {partnerName} can't see it until you've both chosen</p>
     {/if}
     {#if myChoice}
-      <p class="waiting-label">waiting on them<span class="shimmer"></span></p>
+      <p class="waiting-label" role="status">waiting on {partnerName}<span class="shimmer"></span></p>
     {/if}
   {:else}
     <div class="reveal" class:match={reveal.mine === reveal.theirs}>
       <p class="reveal-label">{reveal.mine === reveal.theirs ? 'you matched' : 'you clashed'}</p>
-      <p class="reveal-choices">you: {prompt[reveal.mine === 'a' ? 0 : 1]} · them: {prompt[reveal.theirs === 'a' ? 0 : 1]}</p>
+      <p class="reveal-choices">you: {prompt[reveal.mine === 'a' ? 0 : 1]} · {partnerName}: {prompt[reveal.theirs === 'a' ? 0 : 1]}</p>
       <button class="ready-btn" class:done={iAmReady} on:click={confirmReady} disabled={iAmReady}>
-        {iAmReady ? 'waiting on them…' : 'next round'}
+        {iAmReady ? `waiting on ${partnerName}…` : 'next round'}
       </button>
     </div>
   {/if}

@@ -2,9 +2,12 @@
   import { confirmRequest } from '../engine/confirm.js';
 </script>
 
+<svelte:window on:keydown={(e) => e.key === 'Escape' && $confirmRequest && $confirmRequest.resolve(false)} />
+
 {#if $confirmRequest}
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="scrim" on:click={() => $confirmRequest.resolve(false)}></div>
-  <div class="dialog" role="alertdialog" aria-modal="true">
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-label="please confirm">
     <p class="msg">{$confirmRequest.message}</p>
     <div class="row">
       <button class="btn cancel" on:click={() => $confirmRequest.resolve(false)}>{$confirmRequest.cancelLabel}</button>
