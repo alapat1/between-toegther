@@ -63,15 +63,15 @@ export async function loadRoom(code) {
   const ids = (members || []).map((m) => m.user_id);
   let profilesMap = {};
   if (ids.length) {
-    const { data: profs } = await sb.from('profiles').select('id, display_name').in('id', ids);
-    (profs || []).forEach((p) => { profilesMap[p.id] = p.display_name; });
+    const { data: profs } = await sb.from('profiles').select('id, display_name, avatar').in('id', ids);
+    (profs || []).forEach((p) => { profilesMap[p.id] = p; });
   }
 
   return {
     ok: true,
     room: {
       ...room,
-      members: (members || []).map((m) => ({ ...m, display_name: profilesMap[m.user_id] || '…' }))
+      members: (members || []).map((m) => ({ ...m, display_name: profilesMap[m.user_id]?.display_name || '…', avatar: profilesMap[m.user_id]?.avatar || null }))
     }
   };
 }

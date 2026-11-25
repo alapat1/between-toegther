@@ -3,7 +3,7 @@
 // identity, not accounts).
 import { sb } from './supabase.js';
 
-export async function ensureProfile(displayName) {
+export async function ensureProfile(displayName, avatar = null) {
   let { data: { user } } = await sb.auth.getUser();
   if (!user) {
     const { data, error } = await sb.auth.signInAnonymously();
@@ -13,7 +13,7 @@ export async function ensureProfile(displayName) {
 
   const { data: profile, error: pErr } = await sb
     .from('profiles')
-    .upsert({ id: user.id, display_name: displayName })
+    .upsert({ id: user.id, display_name: displayName, ...(avatar ? { avatar } : {}) })
     .select('*')
     .single();
   if (pErr) return { ok: false, error: pErr };
