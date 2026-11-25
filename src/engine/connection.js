@@ -20,3 +20,24 @@ if (typeof window !== 'undefined') {
 export function catchUpOnSubscribe(refetch) {
   return (status) => { if (status === 'SUBSCRIBED') refetch(); };
 }
+
+// ---- app-level signals (service worker + installability) ----
+/** true once a newer version of the app has been downloaded and is ready to swap in */
+export const updateReady = writable(false);
+
+/** the browser's deferred "install app" prompt (Chrome/Android), or null */
+export const installPrompt = writable(null);
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt.set(e); });
+  window.addEventListener('appinstalled', () => installPrompt.set(null));
+}
+
+export function isStandalone() {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+export function isIos() {
+  return typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+}

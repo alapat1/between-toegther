@@ -2,7 +2,8 @@
   // Device + profile settings. Deliberately small: name (shared, Supabase),
   // haptics/motion (device-local, prefs.js), taste re-entry, space info.
   import { sb } from '../engine/supabase.js';
-  import { hapticsEnabled, soundEnabled, reducedMotion, buzz } from '../engine/prefs.js';
+  import { hapticsEnabled, soundEnabled, reducedMotion, textScale, buzz } from '../engine/prefs.js';
+  import { installPrompt, isStandalone } from '../engine/connection.js';
   import { sfx } from '../engine/sound.js';
   import { toast } from '../engine/toast.js';
   import AvatarPicker from './AvatarPicker.svelte';
@@ -12,6 +13,15 @@
   export let displayName;
   export let avatar = null;
   export let onProfileChanged = () => {};
+  export let onOpenInfo = (section) => {};
+
+  async function installApp() {
+    const p = $installPrompt;
+    if (!p) return;
+    p.prompt();
+    await p.userChoice.catch(() => {});
+    installPrompt.set(null);
+  }
   export let onClose;
   export let onEditTaste; // () => void — opens the Screening Room taste quiz
   export let onSwitchSpace; // () => void
@@ -80,6 +90,17 @@
       <span>reduce motion</span>
       <input type="checkbox" bind:checked={$reducedMotion} />
     </label>
+    <div class="toggle-row">
+      <span id="ts-label">text size</span>
+      <select bind:value={$textScale} aria-labelledby="ts-label" class="select">
+        <option value={1}>normal</option>
+        <option value={1.12}>large</option>
+        <option value={1.25}>largest</option>
+      </select>
+    </div>
+    {#if $installPrompt && !isStandalone()}
+      <button class="row-btn" on:click={installApp}>install on this phone →</button>
+    {/if}
   </div>
 
   <div class="section">
@@ -95,10 +116,18 @@
     <button class="row-btn danger" on:click={onLeaveRoom}>leave this space</button>
   </div>
 
+  <div class="section">
+    <p class="label">help</p>
+    <button class="row-btn" on:click={() => onOpenInfo('help')}>how it works →</button>
+    <button class="row-btn" on:click={() => onOpenInfo('safety')}>safety &amp; content levels →</button>
+    <button class="row-btn" on:click={() => onOpenInfo('privacy')}>privacy →</button>
+  </div>
+
   <p class="fineprint">watch data and posters provided by TMDB.</p>
 </div>
 
 <style>
+  .select { background: var(--surface-2); color: var(--text); border: none; padding: 8px 10px; font-family: var(--font-body); font-size: 14px; }
   .settings { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
   .head { display: flex; justify-content: space-between; align-items: center; }
   .title { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
@@ -113,6 +142,7 @@
     letter-spacing: 0.08em; color: var(--text-soft);
   }
   .name-row { display: flex; gap: 8px; }
+  .name-row .input { flex: 1; min-width: 0; }
   .input {
     flex: 1; background: var(--surface); border: none; color: var(--text);
     font-family: var(--font-body); font-size: 15px; padding: 12px 14px;

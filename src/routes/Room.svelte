@@ -23,6 +23,7 @@
   import Avatar from '../lib/Avatar.svelte';
   import HowToPlay from '../lib/HowToPlay.svelte';
   import History from '../lib/History.svelte';
+  import Info from '../lib/Info.svelte';
   import * as todEngine from '../games/tod/engine.js';
   import * as spinEngine from '../games/spin/engine.js';
   import * as fsEngine from '../games/fingersmash/engine.js';
@@ -54,6 +55,7 @@
   let hadGame = false;
   // Opening a link as someone who isn't in the space yet: ask before joining.
   let historyOpen = false;
+  let infoSection = null; // null | 'help' | 'safety' | 'privacy'
   let howTo = false; // rules card open
   let awayLong = false; // partner gone for a few seconds mid-game
   let awayTimer = null;
@@ -530,6 +532,10 @@
     </div>
   {/if}
 
+  {#if infoSection}
+    <Info section={infoSection} onClose={() => (infoSection = null)} />
+  {/if}
+
   {#if historyOpen}
     <History roomId={room.id} {userId} partnerId={partner?.user_id} {partnerName} onClose={() => (historyOpen = false)} />
   {:else if howTo && game}
@@ -543,6 +549,7 @@
       displayName={room.members?.find((m) => m.user_id === userId)?.display_name || ''}
       avatar={room.members?.find((m) => m.user_id === userId)?.avatar || null}
       onProfileChanged={reloadMembers}
+      onOpenInfo={(sec) => (infoSection = sec)}
       onClose={() => (settingsOpen = false)}
       onEditTaste={editTaste}
       onSwitchSpace={switchSpace}

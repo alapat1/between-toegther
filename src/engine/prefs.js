@@ -18,6 +18,8 @@ function persisted(key, initial) {
 
 export const hapticsEnabled = persisted('bt-haptics', true);
 export const soundEnabled = persisted('bt-sound', true);
+/** text size multiplier: 1 normal, 1.12 large, 1.25 largest */
+export const textScale = persisted('bt-text-scale', 1);
 export const reducedMotion = persisted(
   'bt-reduced-motion',
   typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches

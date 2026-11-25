@@ -3,6 +3,7 @@
   // (no orbit physics yet); picking a game opens its ArcadeCabinet.
   import ArcadeCabinet from './ArcadeCabinet.svelte';
   import InviteShare from './InviteShare.svelte';
+  import InstallHint from './InstallHint.svelte';
 
   export let partnerPresent;
   export let partnerName = 'your person';
@@ -47,6 +48,7 @@
     <ArcadeCabinet title="finger smash" accent="var(--accent-orange-pop)" onAccent="var(--on-accent-orange-pop)" roundPresets={[3, 5, 9]} {partnerPresent} {partnerName} onStart={(rounds) => onStartFS(rounds)} />
   {/if}
 </div>
+<InstallHint />
 
 <style>
   .lobby { padding: 24px; display: flex; flex-direction: column; gap: 16px; }

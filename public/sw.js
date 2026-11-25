@@ -1,7 +1,8 @@
-// Minimal service worker — exists for PWA installability, deliberately NOT
-// an aggressive cache: Vite assets are content-hashed (safe forever), but
-// index.html must always come from the network first or deploys go stale.
-const CACHE = 'bt-v1';
+// Service worker: keeps the app installable and usable offline.
+//  - pages: network-first (fresh deploys always win), cached copy as offline fallback
+//  - /assets/* (content-hashed, immutable): cache-first, so the app shell loads with no connection
+//  - everything else (API calls, realtime): straight to the network, never cached
+const CACHE = 'bt-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.add('./')).then(() => self.skipWaiting()));
@@ -16,10 +17,13 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.mode === 'navigate') {
-    // Network-first: fresh deploys always win; cache only as offline fallback.
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request)
+      fetch(req)
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./', copy));
@@ -27,6 +31,15 @@ self.addEventListener('fetch', (e) => {
         })
         .catch(() => caches.match('./'))
     );
+    return;
   }
-  // Everything else (hashed assets, API calls): straight to network.
+
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/')) {
+    e.respondWith(
+      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
+        return res;
+      }))
+    );
+  }
 });
