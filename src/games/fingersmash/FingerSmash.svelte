@@ -24,6 +24,13 @@
   let transitioning = false;
   let ending = false;
   let lastRound = -1;
+  let endAttemptAt = 0;
+  let finalFlushed = false;
+  // Both phones write taps to the same row, so ending the round has to win a
+  // race against ~4-8 writes/second. Guard rails: slower tap flushes, one final
+  // flush at the buzzer, and ONE phone (the leader) closes the round first while
+  // the other only steps in as a fallback — they never fight each other.
+  $: isLeader = String(userId) < String(partnerId);
 
   // New round: the combo counter starts fresh (it used to carry the whole
   // previous round's count into the next one).
@@ -31,6 +38,8 @@
     lastRound = s.round;
     localTaps = 0;
     unflushed = 0;
+    finalFlushed = false;
+    endAttemptAt = 0;
   }
 
   $: timerPct = roundMs !== null ? Math.max(0, Math.min(100, (roundMs / engine.ROUND_DURATION_MS) * 100)) : 100;
@@ -56,8 +65,24 @@
     } else if (s.phase === 'playing') {
       roundMs = engine.msLeftInRound(s);
       if (roundMs !== null && roundMs <= 0 && !ending) {
-        ending = true;
-        engine.endRound(game).finally(() => { ending = false; });
+        // Buzzer: send whatever taps are still queued, exactly once.
+        if (!finalFlushed) {
+          finalFlushed = true;
+          if (unflushed > 0) {
+            const n = unflushed;
+            unflushed = 0;
+            engine.flushTaps(game, userId, n).then((res) => { if (!res.ok && res.reason !== 'aborted') unflushed += n; });
+          }
+        }
+        // Leader closes the round after a short grace for the final flushes; the
+        // other phone only acts if that hasn't happened by then.
+        const grace = isLeader ? 1000 : 3000;
+        if (-roundMs >= grace && Date.now() >= endAttemptAt) {
+          ending = true;
+          engine.endRound(game)
+            .then((res) => { if (!res.ok && res.reason !== 'aborted') endAttemptAt = Date.now() + 600; })
+            .finally(() => { ending = false; });
+        }
       }
     }
   }
@@ -72,6 +97,7 @@
   onMount(() => {
     tickTimer = setInterval(tick, 100);
     flushTimer = setInterval(() => {
+      if (roundMs !== null && roundMs <= 0) return; // the buzzer handles the last flush
       if (unflushed > 0) {
         const n = unflushed;
         unflushed = 0;
@@ -81,7 +107,7 @@
           if (!res.ok && res.reason !== 'aborted') unflushed += n;
         });
       }
-    }, 250);
+    }, 500);
   });
   onDestroy(() => {
     clearInterval(tickTimer);

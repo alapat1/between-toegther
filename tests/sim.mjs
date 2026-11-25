@@ -72,6 +72,18 @@ async function run(q) {
 
 sb.from = (t) => builder(t);
 // Stub the realtime/auth bits so nothing tries to open a socket.
+// fs_add_taps: atomic increment, like the real SQL function (still bumps the version trigger).
+sb.rpc = async (name, args) => {
+  await latency();
+  if (name !== 'fs_add_taps') return { data: null, error: { message: 'unknown rpc ' + name } };
+  const g = db.game_sessions.find((r) => r.id === args.p_game);
+  if (g && !g.ended_at && g.state.phase === 'playing') {
+    g.state.taps = g.state.taps || {};
+    g.state.taps[args.p_user] = (g.state.taps[args.p_user] || 0) + Math.min(Math.max(args.p_n, 0), 200);
+    g.version += 1;
+  }
+  return { data: null, error: null };
+};
 sb.channel = () => ({ on() { return this; }, subscribe() { return this; } });
 sb.removeChannel = () => {};
 
@@ -225,16 +237,27 @@ await test('Spin: skipping a prompt advances the round with no point, only befor
   assert.deepEqual(st.scores, {}, 'no points for a skip');
 });
 
-await test('stress: 30 simultaneous version collisions all resolve (no lost writes)', async (room) => {
+await test('stress: 30 simultaneous tap flushes are ALL counted, none dropped', async (room) => {
   const { game: g0 } = await startGame(room, 'fs', 1, fs.initialState(1));
   const id = g0.id;
   await Promise.all([fs.tapReady(snap(id), A, B), fs.tapReady(snap(id), B, A)]);
-  await Promise.all([fs.beginPlaying(snap(id))]);
+  await fs.beginPlaying(snap(id));
   const results = await Promise.all(Array.from({ length: 30 }, (_, i) => fs.flushTaps(snap(id), i % 2 ? A : B, 1)));
-  const failed = results.filter((r) => !r.ok);
-  const total = (game(id).state.taps[A] || 0) + (game(id).state.taps[B] || 0);
-  assert.equal(failed.length + total, 30, `every flush is either applied or reported failed (applied ${total}, failed ${failed.length})`);
-  assert.equal(failed.length, 0, `${failed.length}/30 writes exhausted their retries and were silently dropped`);
+  assert.equal(results.filter((r) => !r.ok).length, 0, 'no flush fails');
+  assert.equal((game(id).state.taps[A] || 0) + (game(id).state.taps[B] || 0), 30, 'every tap counted');
+});
+
+await test('Finger Smash: the round ENDS even while both phones are still streaming taps', async (room) => {
+  const { game: g0 } = await startGame(room, 'fs', 1, fs.initialState(1));
+  const id = g0.id;
+  await Promise.all([fs.tapReady(snap(id), A, B), fs.tapReady(snap(id), B, A)]);
+  await fs.beginPlaying(snap(id));
+  const stream = Array.from({ length: 40 }, (_, i) => (async () => { await new Promise((r) => setTimeout(r, i * 6)); return fs.flushTaps(snap(id), i % 2 ? A : B, 1); })());
+  const [end1, end2] = await Promise.all([fs.endRound(snap(id)), fs.endRound(snap(id)), ...stream].slice(0, 2).concat([]));
+  await Promise.all(stream);
+  assert.ok(end1.ok || end2.ok, 'one of the two enders wins');
+  assert.equal(game(id).state.phase, 'ended', 'round closed despite the tap stream');
+  assert.ok(game(id).ended_at);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

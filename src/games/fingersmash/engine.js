@@ -5,6 +5,8 @@
 // clients derive their countdown/round-timer from that same timestamp
 // instead of their own clock. Per flows.md §2.4, the gate is a tap, not a hold.
 import { guardedGameWrite } from '../../engine/session.js';
+import { sb } from '../../engine/supabase.js';
+import { logError } from '../../engine/errlog.js';
 
 export const ROUND_DURATION_MS = 30000;
 export const COUNTDOWN_MS = 3000;
@@ -52,19 +54,21 @@ export function msLeftInRound(state) {
   return ROUND_DURATION_MS - elapsed;
 }
 
-// Called on every tap — purely local (combo counter feel). The component
-// batches these and calls flushTaps() on an interval so tapping doesn't
-// generate a DB write per tap.
+// Taps are counted by a server-side atomic increment (fs_add_taps), NOT by a
+// read-modify-write of the game row. Both phones write ~2-4x a second to the
+// same row; with optimistic version checks those writes retried against each
+// other (and against the round-ending write) and could livelock on a slow
+// connection. One atomic statement has nothing to retry. The function itself
+// ignores the call unless the game is still playing and the caller is a member
+// adding their own taps.
 export async function flushTaps(game, userId, additionalCount) {
   if (additionalCount <= 0) return { ok: true };
-  return guardedGameWrite(game.id, (current) => {
-    // A flush that lands after the round closed must NOT count — without
-    // this guard, taps from the last 250ms window of round N leaked into
-    // round N+1's fresh tally (endRound resets taps to {}).
-    if (current.state.phase !== 'playing') return null;
-    const taps = { ...current.state.taps, [userId]: (current.state.taps[userId] || 0) + additionalCount };
-    return { state: { ...current.state, taps } };
-  });
+  const { error } = await sb.rpc('fs_add_taps', { p_game: game.id, p_user: userId, p_n: additionalCount });
+  if (error) {
+    logError('write-failure', `fs_add_taps: ${error.message}`, { code: error.code, gameId: game.id });
+    return { ok: false, reason: 'rpc-error', error };
+  }
+  return { ok: true };
 }
 
 export async function beginPlaying(game) {
@@ -93,5 +97,5 @@ export async function endRound(game) {
       phase: 'ready_gate',
       state: { ...current.state, scores, round: nextRound, readyTaps: {}, roundStartedAt: null, taps: {}, phase: 'ready_gate' }
     };
-  });
+  }, { maxAttempts: 15 });
 }
