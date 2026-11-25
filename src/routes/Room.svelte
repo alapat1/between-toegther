@@ -20,6 +20,7 @@
   import { online, catchUpOnSubscribe } from '../engine/connection.js';
   import { nameOr } from '../engine/copy.js';
   import { focusOnMount } from '../engine/a11y.js';
+  import Avatar from '../lib/Avatar.svelte';
   import * as todEngine from '../games/tod/engine.js';
   import * as spinEngine from '../games/spin/engine.js';
   import * as fsEngine from '../games/fingersmash/engine.js';
@@ -423,6 +424,7 @@
       <button class="name-btn" on:click={startRenaming}>{room.display_name || `room ${room.code}`}</button>
     {/if}
     <span class="presence-label">
+      {#if partner}<Avatar avatar={partner.avatar} id={partner.user_id} size={22} />{/if}
       {#if !partner}
         waiting for someone to join
       {:else if partnerStatus === 'away'}
@@ -459,6 +461,8 @@
       {userId}
       {room}
       displayName={room.members?.find((m) => m.user_id === userId)?.display_name || ''}
+      avatar={room.members?.find((m) => m.user_id === userId)?.avatar || null}
+      onProfileChanged={reloadMembers}
       onClose={() => (settingsOpen = false)}
       onEditTaste={editTaste}
       onSwitchSpace={switchSpace}
@@ -542,7 +546,7 @@
     font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; padding: 4px 8px; max-width: 50%;
   }
-  .presence-label { flex: 1; text-align: right; }
+  .presence-label { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
   .menu-btn {
     background: var(--surface); border: none; color: var(--text);
     font-size: 16px; line-height: 1; padding: 4px 10px; cursor: pointer;

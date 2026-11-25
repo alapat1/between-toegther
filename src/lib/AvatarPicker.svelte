@@ -30,6 +30,6 @@
   .cell { background: var(--surface); border: 2px solid transparent; font-size: 22px; padding: 8px 0; cursor: pointer; }
   .cell.on { border-color: var(--accent-blue-atoll); }
   .colors { display: flex; gap: 10px; }
-  .swatch { width: 28px; height: 28px; border: 2px solid transparent; cursor: pointer; border-radius: 50%; }
+  .swatch { width: 28px; height: 28px; border: 2px solid transparent; cursor: pointer; }
   .swatch.on { border-color: var(--text); }
 </style>

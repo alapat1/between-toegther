@@ -4,10 +4,13 @@
   import { sb } from '../engine/supabase.js';
   import { hapticsEnabled, reducedMotion, buzz } from '../engine/prefs.js';
   import { toast } from '../engine/toast.js';
+  import AvatarPicker from './AvatarPicker.svelte';
 
   export let userId;
   export let room; // { code, display_name }
   export let displayName;
+  export let avatar = null;
+  export let onProfileChanged = () => {};
   export let onClose;
   export let onEditTaste; // () => void — opens the Screening Room taste quiz
   export let onSwitchSpace; // () => void
@@ -25,6 +28,13 @@
     if (error) { toast("couldn't save your name — try again", 'error'); return; }
     displayName = trimmed;
     toast('name updated', 'success');
+  }
+
+  async function saveAvatar(v) {
+    avatar = v;
+    const { error } = await sb.from('profiles').update({ avatar: v }).eq('id', userId);
+    if (error) { toast("couldn't save your look — try again", 'error'); return; }
+    onProfileChanged();
   }
 
   function copyCode() {
@@ -48,6 +58,11 @@
       <input class="input" bind:value={nameDraft} on:keydown={(e) => e.key === 'Enter' && saveName()} maxlength="24" />
       <button class="mini" on:click={saveName} disabled={savingName}>save</button>
     </div>
+  </div>
+
+  <div class="section">
+    <p class="label">your look</p>
+    <AvatarPicker value={avatar} id={userId} onChange={saveAvatar} />
   </div>
 
   <div class="section">

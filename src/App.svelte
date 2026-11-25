@@ -7,6 +7,8 @@
   import Room from './routes/Room.svelte';
   import Toast from './lib/Toast.svelte';
   import ConfirmDialog from './lib/ConfirmDialog.svelte';
+  import Splash from './lib/Splash.svelte';
+  import Welcome from './lib/Welcome.svelte';
   import { reducedMotion } from './engine/prefs.js';
 
   // Reduced motion: settings toggle (defaults to the OS preference) collapses
@@ -18,6 +20,13 @@
   let user = null;
   let profile = null;
   let roomCode = null;
+  let booting = true; // splash until the session check finishes
+  let welcomed = false;
+  try { welcomed = localStorage.getItem('bt-welcomed') === '1'; } catch (e) { /* private mode */ }
+  function finishWelcome() {
+    welcomed = true;
+    try { localStorage.setItem('bt-welcomed', '1'); } catch (e) { /* ignore */ }
+  }
 
   function readHash() {
     const m = window.location.hash.match(/^#\/r\/([A-Z0-9]+)$/i);
@@ -45,21 +54,37 @@
   }
 
   onMount(async () => {
+    // The static splash from index.html hands over to the in-app one.
+    document.getElementById('boot')?.remove();
     readHash();
     window.addEventListener('hashchange', readHash);
-    // If a session already exists (persisted anon auth), skip the name gate.
-    const { data: { user: existing } } = await sb.auth.getUser();
-    if (existing) {
-      const { data: prof } = await sb.from('profiles').select('*').eq('id', existing.id).maybeSingle();
-      if (prof) {
-        user = existing; profile = prof;
-        await tryAutoRejoin(existing.id);
+    try {
+      // If a session already exists (persisted anon auth), skip the name gate.
+      const { data: { user: existing } } = await sb.auth.getUser();
+      if (existing) {
+        const { data: prof } = await sb.from('profiles').select('*').eq('id', existing.id).maybeSingle();
+        if (prof) {
+          user = existing; profile = prof;
+          await tryAutoRejoin(existing.id);
+        }
       }
+    } catch (e) {
+      // Offline or backend hiccup: fall through to the name gate rather than hang on the splash.
+    } finally {
+      // Hold the splash just long enough to feel intentional, never longer.
+      const minMs = 600 - Math.min(600, performance.now());
+      await new Promise((r) => setTimeout(r, minMs));
+      booting = false;
     }
   });
 </script>
 
 <main>
+  {#if booting}
+    <Splash />
+  {:else if !user && !welcomed}
+    <Welcome onDone={finishWelcome} />
+  {:else}
   <header class:compact={!!roomCode && !!user}>
     <h1>between &amp; together</h1>
   </header>
@@ -70,6 +95,7 @@
     <Landing userId={user.id} onRoomReady={goToRoom} />
   {:else}
     <Room code={roomCode} userId={user.id} />
+  {/if}
   {/if}
 </main>
 
