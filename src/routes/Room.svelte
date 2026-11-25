@@ -496,7 +496,7 @@
       <button class="name-btn" on:click={startRenaming}>{room.display_name || `space ${room.code}`}</button>
     {/if}
     <span class="presence-label">
-      {#if partner}<Avatar avatar={partner.avatar} id={partner.user_id} size={22} />{/if}
+      {#if partner}<Avatar avatar={partner.avatar} id={partner.user_id} size={30} />{/if}
       {#if !partner}
         waiting for someone to join
       {:else if partnerStatus === 'away'}

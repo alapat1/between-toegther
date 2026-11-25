@@ -7,6 +7,8 @@ export default defineConfig({
   plugins: [svelte()],
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    // the avatar generator is a deliberately lazy ~830 KB chunk
+    chunkSizeWarningLimit: 900
   }
 });

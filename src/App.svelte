@@ -14,6 +14,7 @@
   import NotFound from './lib/NotFound.svelte';
   import Info from './lib/Info.svelte';
   import InstallHint from './lib/InstallHint.svelte';
+  import { loadRenderer } from './engine/avatar.js';
 
   // Reduced motion: settings toggle (defaults to the OS preference) collapses
   // animations app-wide via a body class the token sheet can key off.
@@ -67,6 +68,7 @@
   onMount(async () => {
     // The static splash from index.html hands over to the in-app one.
     document.getElementById('boot')?.remove();
+    loadRenderer(); // avatar generator loads in the background
     readHash();
     window.addEventListener('hashchange', readHash);
     try {

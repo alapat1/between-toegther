@@ -2,12 +2,12 @@
   import PlateButton from './PlateButton.svelte';
   import { ensureProfile } from '../engine/auth.js';
   import AvatarPicker from './AvatarPicker.svelte';
-  import { EMOJIS, COLORS, formatAvatar } from '../engine/avatar.js';
+  import { randomAvatar } from '../engine/avatar.js';
 
   export let onReady; // (user, profile) => void
 
   let name = '';
-  let avatar = formatAvatar(Math.floor(Math.random() * EMOJIS.length), Math.floor(Math.random() * COLORS.length));
+  let avatar = randomAvatar();
   let busy = false;
   let errorMsg = '';
 

@@ -32,6 +32,7 @@
     {#each FAQ as [q, a]}
       <div class="item"><h3>{q}</h3><p>{a}</p></div>
     {/each}
+    <div class="item"><h3>credits</h3><p>avatars are made with DiceBear (MIT). styles: Lorelei by Lisa Wischofsky, Notionists by Zoish, Open Peeps by Pablo Stanley, Pixel Art and Thumbs by DiceBear — all public domain (CC0). QR codes by qrcode-generator (MIT).</p></div>
   {:else}
     <div class="item"><h3>what we keep</h3><p>your first name or nickname, your emoji look, the spaces you belong to, and the game state while you play (for example, which option you picked in would you rather). there are no accounts, passwords or email addresses.</p></div>
     <div class="item"><h3>who can see it</h3><p>only the two people in a space can see what happens in it. we don’t sell data, show ads, or run advertising trackers.</p></div>

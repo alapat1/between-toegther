@@ -42,7 +42,7 @@
   .t { font-family: var(--font-display); font-weight: 700; font-size: 14px; margin: 0; }
   .s { color: var(--text-soft); font-size: 12px; margin: 2px 0 0; }
   .btns { display: flex; gap: 6px; }
-  button { border: none; padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; cursor: pointer; }
+  button { border: none; padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
   .go { background: var(--accent-blue-atoll); color: var(--on-accent-blue-atoll); }
   .x { background: none; color: var(--text-soft); }
 </style>

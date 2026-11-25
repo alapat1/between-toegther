@@ -1,14 +1,21 @@
 // Draws a 1080x1350 result card on a canvas and shares it (native share sheet
 // with the image if the phone supports it, otherwise a download).
-import { parseAvatar } from './avatar.js';
+import { parseAvatar, loadRenderer } from './avatar.js';
 
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888';
 const resolve = (v) => { const m = /var\((--[^)]+)\)/.exec(v || ''); return m ? cssVar(m[1]) : v; };
 
-function tile(ctx, x, y, size, person) {
+function loadImage(src) {
+  return new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+}
+
+// Draw one avatar: DiceBear SVG (pre-loaded) or the legacy emoji tile.
+function tile(ctx, x, y, size, person, img) {
   const a = parseAvatar(person.avatar, person.id);
-  ctx.fillStyle = resolve(a.bg);
+  if (a.kind === 'db' && img) { ctx.drawImage(img, x, y, size, size); return; }
+  ctx.fillStyle = resolve(a.bg || 'var(--surface-2)');
   ctx.fillRect(x, y, size, size);
+  if (a.kind !== 'emoji') return;
   ctx.font = `${size * 0.55}px system-ui, "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -16,7 +23,7 @@ function tile(ctx, x, y, size, person) {
   ctx.fillText(a.emoji, x + size / 2, y + size / 2 + size * 0.04);
 }
 
-export function drawShareCard({ title, headline, sub, me, them }) {
+export function drawShareCard({ title, headline, sub, me, them }, imgs = []) {
   const W = 1080, H = 1500;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
@@ -46,8 +53,8 @@ export function drawShareCard({ title, headline, sub, me, them }) {
 
   // the two players, always clear of the text above and the footer below
   const size = 200; const gap = 160; const total = size * 2 + gap; const x0 = (W - total) / 2; const y0 = y + 80;
-  [[me, x0], [them, x0 + size + gap]].forEach(([p, x]) => {
-    tile(ctx, x, y0, size, p);
+  [[me, x0, imgs[0]], [them, x0 + size + gap, imgs[1]]].forEach(([p, x, img]) => {
+    tile(ctx, x, y0, size, p, img);
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = text; ctx.font = '700 40px "Space Grotesk", system-ui, sans-serif';
     ctx.fillText(p.name, x + size / 2, y0 + size + 56);
@@ -60,7 +67,10 @@ export function drawShareCard({ title, headline, sub, me, them }) {
 }
 
 export async function shareCard(data) {
-  const canvas = drawShareCard(data);
+  const r = await loadRenderer();
+  const uriOf = (p) => { const a = parseAvatar(p.avatar, p.id); return a.kind === 'db' && r ? r.render(a.style, a.seed) : null; };
+  const imgs = await Promise.all([data.me, data.them].map((p) => (uriOf(p) ? loadImage(uriOf(p)) : null)));
+  const canvas = drawShareCard(data, imgs);
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
   if (!blob) return { ok: false };
   const file = new File([blob], 'between-and-together.png', { type: 'image/png' });
