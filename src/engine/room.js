@@ -3,6 +3,7 @@
 // and the join_room_by_code RPC (locks room SELECT to members/creator,
 // fixes the room-hijack hole from 2026-06-20) are carried over as-is.
 import { sb } from './supabase.js';
+import { catchUpOnSubscribe } from './connection.js';
 
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 
@@ -192,7 +193,7 @@ export function subscribeToRoomMembers(roomId, onChange) {
     channel = sb
       .channel(`room_members:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` }, onChange)
-      .subscribe();
+      .subscribe(catchUpOnSubscribe(onChange));
   }
 
   function teardownAndResubscribe() {

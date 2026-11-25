@@ -17,10 +17,12 @@
   import { setErrorContext } from '../engine/errlog.js';
   import { confirm } from '../engine/confirm.js';
   import { buzz } from '../engine/prefs.js';
-  import { online } from '../engine/connection.js';
+  import { online, catchUpOnSubscribe } from '../engine/connection.js';
   import * as todEngine from '../games/tod/engine.js';
   import * as spinEngine from '../games/spin/engine.js';
   import * as fsEngine from '../games/fingersmash/engine.js';
+
+  const GAME_LABEL = { wyr: 'would you rather', tod: 'truth or dare', spin: 'spin the wheel', fs: 'finger smash' };
 
   export let code;
   export let userId;
@@ -143,9 +145,19 @@
     unsubMembers = subscribeToRoomMembers(room.id, reloadMembers);
   }
 
+  // The inviter learns "accepted" from the invite row, but the game row only
+  // appears a moment later (the accepter's phone creates it). Without also
+  // watching for new games in this room, the inviter sat in the lobby for
+  // ~15s until the poll caught up. Watch inserts directly.
+  let gameInsertChannel = null;
   function rewireInvitesSubscription() {
     if (unsubInvites) unsubInvites();
     unsubInvites = subscribeToInvites(room.id, reloadInviteAndGame);
+    if (gameInsertChannel) sb.removeChannel(gameInsertChannel);
+    gameInsertChannel = sb
+      .channel(`game_inserts:${room.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_sessions', filter: `room_id=eq.${room.id}` }, reloadInviteAndGame)
+      .subscribe(catchUpOnSubscribe(reloadInviteAndGame));
   }
 
   function rewirePresence() {
@@ -190,7 +202,7 @@
       movesChannel = sb
         .channel(`wyr_moves:${game.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wyr_moves', filter: `game_id=eq.${game.id}` }, loadMoves)
-        .subscribe();
+        .subscribe(catchUpOnSubscribe(loadMoves));
     }
   }
 
@@ -214,7 +226,7 @@
     let ticks = 0;
     watchdogTimer = setInterval(() => {
       ticks++;
-      if (game || ticks % 4 === 0) resync();
+      if (game || ticks % 2 === 0) resync();
     }, 5000);
   }
 
@@ -267,27 +279,38 @@
   async function acceptInvite() {
     if (!invite || answeringInvite) return;
     answeringInvite = true;
-    await respondInvite(invite.id, true);
-    const gameType = invite.game_type;
-    const initialState = await buildInitialState(gameType, invite.rounds, invite.config || {});
-    const res = await startGame(room.id, gameType, invite.rounds, initialState);
-    if (res.ok) {
-      game = res.game;
-      invite = null;
-      if (gameType === 'wyr') await loadMoves();
-      rewireGameSubscription();
-    } else {
-      toastError("couldn't start the game — try again");
+    // Snapshot: marking the invite accepted fires a realtime change that
+    // nulls the reactive `invite` while we're still mid-await. Reading
+    // invite.* after that point crashed with "reading 'rounds' of null" and
+    // made "let's go" silently do nothing.
+    const inv = invite;
+    try {
+      const resp = await respondInvite(inv.id, true);
+      if (!resp.ok) { toastError("couldn't accept — try again"); return; }
+      const initialState = await buildInitialState(inv.game_type, inv.rounds, inv.config || {});
+      const res = await startGame(room.id, inv.game_type, inv.rounds, initialState);
+      if (res.ok && res.game) {
+        game = res.game;
+        invite = null;
+        if (inv.game_type === 'wyr') await loadMoves();
+        rewireGameSubscription();
+      } else {
+        toastError("couldn't start the game — try again");
+      }
+    } finally {
+      answeringInvite = false;
     }
-    answeringInvite = false;
   }
 
   async function declineInvite() {
     if (!invite || answeringInvite) return;
     answeringInvite = true;
-    await respondInvite(invite.id, false);
-    invite = null;
-    answeringInvite = false;
+    try {
+      await respondInvite(invite.id, false);
+      invite = null;
+    } finally {
+      answeringInvite = false;
+    }
   }
 
   // Escape hatch: either partner can end the current game. Sets ended_at so
@@ -361,6 +384,7 @@
     if (unsubMembers) unsubMembers();
     if (unsubInvites) unsubInvites();
     if (movesChannel) sb.removeChannel(movesChannel);
+    if (gameInsertChannel) sb.removeChannel(gameInsertChannel);
     if (presence) presence.unsubscribe();
     if (watchdogTimer) clearInterval(watchdogTimer);
     window.removeEventListener('popstate', handlePopstate);
@@ -370,7 +394,7 @@
 </script>
 
 {#if loading}
-  <p class="status">opening the room…</p>
+  <p class="status loading">opening the room<span class="dots"></span></p>
 {:else if !room}
   <p class="status">that room is gone.</p>
 {:else}
@@ -440,7 +464,7 @@
           <button class="invite-btn decline" on:click={declineInvite}>cancel</button>
         </div>
       {:else}
-        <p class="invite-text">{partner?.display_name || 'they'} want{partner ? 's' : ''} to play <strong>{invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme} · {invite.config.theme}{/if}</p>
+        <p class="invite-text">{partner?.display_name || 'they'} want{partner ? 's' : ''} to play <strong>{GAME_LABEL[invite.game_type] || invite.game_type}</strong> · {invite.rounds} rounds{#if invite.config?.theme}{' · ' + invite.config.theme}{/if}</p>
         <div class="row bottom">
           <button class="invite-btn decline" disabled={answeringInvite} on:click={declineInvite}>not now</button>
           <button class="invite-btn accept" disabled={answeringInvite} on:click={acceptInvite}>{answeringInvite ? 'starting…' : "let's go"}</button>
@@ -474,6 +498,8 @@
 {/if}
 
 <style>
+  .loading .dots::after { content: ''; animation: dots 1.2s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75%, 100% { content: '...'; } }
   .offline-banner { background: var(--accent-fruit-dove, #c0392b); color: #fff; font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; text-align: center; }
   .room-header {
     display: flex;

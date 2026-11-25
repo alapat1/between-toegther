@@ -60,7 +60,7 @@
 </script>
 
 <main>
-  <header>
+  <header class:compact={!!roomCode && !!user}>
     <h1>between &amp; together</h1>
   </header>
 
@@ -86,6 +86,8 @@
   header {
     padding: 32px 24px 0;
   }
+  header.compact { padding: 14px 24px 0; }
+  header.compact h1 { font-size: 13px; letter-spacing: 0.04em; opacity: 0.7; }
   h1 {
     font-family: var(--font-display);
     font-weight: 800;

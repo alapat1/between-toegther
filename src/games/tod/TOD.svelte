@@ -80,13 +80,14 @@
 </div>
 
 <style>
-  .tod { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .tod { padding: 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; text-align: center; min-height: 60vh; justify-content: center; }
   .meta {
     display: flex; justify-content: space-between;
     font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--text-soft);
   }
-  .row { display: flex; gap: 12px; }
+  .row { display: flex; gap: 12px; width: 100%; }
+  .row > :global(.plate) { flex: 1; }
   .plate-stack { position: relative; }
   .prompt-card {
     background: var(--surface);

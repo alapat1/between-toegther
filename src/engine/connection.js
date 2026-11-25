@@ -10,3 +10,13 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', () => online.set(true));
   window.addEventListener('offline', () => online.set(false));
 }
+
+/**
+ * Subscribe callback that refetches the moment a realtime channel is live.
+ * A change committed in the window between "page loaded" and "channel
+ * subscribed" is never delivered by realtime — without this, the partner who
+ * joined/moved in that gap stays invisible until the next poll.
+ */
+export function catchUpOnSubscribe(refetch) {
+  return (status) => { if (status === 'SUBSCRIBED') refetch(); };
+}

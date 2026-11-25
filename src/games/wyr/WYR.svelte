@@ -32,6 +32,7 @@
 </script>
 
 <div class="wyr">
+  <p class="round-label">round {round + 1} of {game.state.prompts.length}</p>
   <div class="pip-strip" aria-label="round history">
     {#each game.state.pips || [] as pip}
       <span class="pip {pip}"></span>
@@ -60,6 +61,9 @@
         {prompt[1]}
       </button>
     </div>
+    {#if !myChoice}
+      <p class="hint">tap the one you'd pick — they can't see it until you both have</p>
+    {/if}
     {#if myChoice}
       <p class="waiting-label">waiting on them<span class="shimmer"></span></p>
     {/if}
@@ -75,6 +79,8 @@
 </div>
 
 <style>
+  .round-label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); margin: 0; text-align: center; }
+  .hint { font-size: 13px; color: var(--text-soft); text-align: center; margin: 0; }
   .wyr {
     display: flex;
     flex-direction: column;

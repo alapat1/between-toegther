@@ -3,6 +3,7 @@
 // every game (present and future) shares one implementation instead of each
 // screen re-deriving its own join/rejoin/resume logic.
 import { sb } from './supabase.js';
+import { catchUpOnSubscribe } from './connection.js';
 import { guardedWrite } from './guardedWrite.js';
 import { toastError } from './toast.js';
 
@@ -88,7 +89,7 @@ export function subscribeToGame(gameId, onChange) {
     channel = sb
       .channel(`game_sessions:${gameId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_sessions', filter: `id=eq.${gameId}` }, onChange)
-      .subscribe();
+      .subscribe(catchUpOnSubscribe(onChange));
   }
 
   function teardownAndResubscribe() {

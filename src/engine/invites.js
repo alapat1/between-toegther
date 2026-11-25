@@ -4,6 +4,7 @@
 // both partners propose at once, the second insert fails and the sender
 // just picks up the first invite as an incoming one instead of racing.
 import { sb } from './supabase.js';
+import { catchUpOnSubscribe } from './connection.js';
 
 // Invites go stale fast — a 3-day-old "want to play?" greeting someone at
 // login is worse than none. Expired pendings also block the partial unique
@@ -81,7 +82,7 @@ export function subscribeToInvites(roomId, onChange) {
     channel = sb
       .channel(`game_invites:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites', filter: `room_id=eq.${roomId}` }, onChange)
-      .subscribe();
+      .subscribe(catchUpOnSubscribe(onChange));
   }
 
   function teardownAndResubscribe() {
