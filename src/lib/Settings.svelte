@@ -2,7 +2,8 @@
   // Device + profile settings. Deliberately small: name (shared, Supabase),
   // haptics/motion (device-local, prefs.js), taste re-entry, space info.
   import { sb } from '../engine/supabase.js';
-  import { hapticsEnabled, reducedMotion, buzz } from '../engine/prefs.js';
+  import { hapticsEnabled, soundEnabled, reducedMotion, buzz } from '../engine/prefs.js';
+  import { sfx } from '../engine/sound.js';
   import { toast } from '../engine/toast.js';
   import AvatarPicker from './AvatarPicker.svelte';
 
@@ -70,6 +71,10 @@
     <label class="toggle-row">
       <span>haptics</span>
       <input type="checkbox" bind:checked={$hapticsEnabled} on:change={() => $hapticsEnabled && buzz()} />
+    </label>
+    <label class="toggle-row">
+      <span>sound effects</span>
+      <input type="checkbox" bind:checked={$soundEnabled} on:change={() => $soundEnabled && sfx('match')} />
     </label>
     <label class="toggle-row">
       <span>reduce motion</span>

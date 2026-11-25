@@ -3,10 +3,19 @@
   // closed": a finished game_sessions row (ended_at set, phase ended/end)
   // renders here instead of snapping straight to the lobby. Scoreboard +
   // rematch (re-sends the same invite config) + back to lobby.
+  import { onMount } from 'svelte';
+  import { sfx } from '../engine/sound.js';
+  import { summarizeGame } from '../engine/summary.js';
+  import { shareCard } from '../engine/shareCard.js';
+  import { toast } from '../engine/toast.js';
+  onMount(() => sfx('win'));
   export let game;        // the FINAL game_sessions row (ended)
   export let userId;
   export let partnerId;
   export let partnerName = 'them';
+  export let myName = 'you';
+  export let myAvatar = null;
+  export let partnerAvatar = null;
   export let onRematch;   // (gameType, rounds, config) => void
   export let onDone;      // () => void
 
@@ -33,6 +42,22 @@
     if (type === 'tod') return { rounds: s.totalRounds || 6, config: { theme: s.theme, mode: s.mode || 'dealer', firstTurnUserId: userId, chooserUserId: partnerId } };
     if (type === 'spin') return { rounds: s.total_rounds || 6, config: { firstSpinnerId: userId } };
     return { rounds: s.totalRounds || 5, config: {} };
+  }
+
+  let sharing = false;
+  async function share() {
+    if (sharing) return;
+    sharing = true;
+    try {
+      const sum = summarizeGame(game, userId, partnerId, partnerName);
+      const res = await shareCard({
+        title: sum.title, headline: sum.headline, sub: sum.sub,
+        me: { name: myName, avatar: myAvatar, id: userId, stat: sum.mine },
+        them: { name: partnerName, avatar: partnerAvatar, id: partnerId, stat: sum.theirs }
+      });
+      if (res.how === 'downloaded') toast('result saved as an image', 'success');
+    } catch (e) { toast("couldn't make the image — try again", 'error'); }
+    sharing = false;
   }
 
   function rematch() {
@@ -70,6 +95,7 @@
   {/if}
 
   <div class="actions">
+    <button class="act share-btn" disabled={sharing} on:click={share}>{sharing ? 'making…' : 'share result'}</button>
     <button class="act done-btn" on:click={onDone}>back to lobby</button>
     <button class="act rematch-btn" on:click={rematch}>rematch</button>
   </div>
@@ -99,7 +125,8 @@
   .score-cell.won { background: var(--surface-2); box-shadow: 4px 5px 0 0 #000; }
   .num { font-family: var(--font-display); font-weight: 800; font-size: 32px; }
   .who { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; color: var(--text-soft); }
-  .actions { display: flex; gap: 12px; margin-top: auto; width: 100%; }
+  .actions { display: flex; gap: 12px; margin-top: auto; width: 100%; flex-wrap: wrap; }
+  .share-btn { width: 100%; background: var(--surface-2); color: var(--text); }
   .act {
     font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
     letter-spacing: 0.02em; border: none; padding: 16px 20px; cursor: pointer;

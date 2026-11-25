@@ -74,6 +74,14 @@ export async function markSpinnerDone(game) {
   });
 }
 
+// The spinner can pass on a prompt they don't want: no point to anyone, round advances.
+export async function skipPrompt(game, partnerId) {
+  return guardedGameWrite(game.id, (current) => {
+    if (current.state.phase !== 'prompt' || current.state.spinner_done) return null;
+    return advance({ ...current.state }, partnerId);
+  });
+}
+
 export async function judge(game, verdict, partnerId) {
   return guardedGameWrite(game.id, (current) => {
     // Only judge a prompt that's still open — a double-tapped verdict

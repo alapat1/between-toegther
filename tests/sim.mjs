@@ -208,6 +208,23 @@ await test('Spin: spinner rotates, only judge awards a point, double taps safe, 
   assert.ok(game(id).ended_at);
 });
 
+await test('Spin: skipping a prompt advances the round with no point, only before "i did it"', async (room) => {
+  const { game: g0 } = await startGame(room, 'spin', 3, spin.initialState(3, A));
+  const id = g0.id;
+  await spin.spin(snap(id));
+  await spin.markSpinnerDone(snap(id));
+  await spin.skipPrompt(snap(id), B);
+  assert.equal(game(id).state.round, 0, 'cannot skip after "i did it"');
+  // fresh round: skip works
+  const { game: g1 } = await startGame(room + '-b', 'spin', 3, spin.initialState(3, A));
+  await spin.spin(snap(g1.id));
+  await Promise.all([spin.skipPrompt(snap(g1.id), B), spin.skipPrompt(snap(g1.id), B)]);
+  const st = game(g1.id).state;
+  assert.equal(st.round, 1, 'advanced exactly once');
+  assert.equal(st.spinner_id, B, 'spinner rotates');
+  assert.deepEqual(st.scores, {}, 'no points for a skip');
+});
+
 await test('stress: 30 simultaneous version collisions all resolve (no lost writes)', async (room) => {
   const { game: g0 } = await startGame(room, 'fs', 1, fs.initialState(1));
   const id = g0.id;

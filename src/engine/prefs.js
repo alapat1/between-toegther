@@ -17,6 +17,7 @@ function persisted(key, initial) {
 }
 
 export const hapticsEnabled = persisted('bt-haptics', true);
+export const soundEnabled = persisted('bt-sound', true);
 export const reducedMotion = persisted(
   'bt-reduced-motion',
   typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches

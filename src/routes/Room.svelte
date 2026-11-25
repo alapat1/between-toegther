@@ -9,7 +9,7 @@
   import Settings from '../lib/Settings.svelte';
   import Recap from '../lib/Recap.svelte';
   import { sb } from '../engine/supabase.js';
-  import { loadRoom, joinRoom, partnerOf, renameRoom, leaveRoom, subscribeToRoomMembers, joinPresence } from '../engine/room.js';
+  import { loadRoom, joinRoom, partnerOf, selfOf, renameRoom, leaveRoom, subscribeToRoomMembers, joinPresence } from '../engine/room.js';
   import { reconcileActiveGame, startGame, subscribeToGame, guardedGameWrite } from '../engine/session.js';
   import { sendInvite, respondInvite, fetchActiveInvite, subscribeToInvites } from '../engine/invites.js';
   import { fetchWyrPrompts } from '../engine/promptsRepo.js';
@@ -21,6 +21,8 @@
   import { nameOr } from '../engine/copy.js';
   import { focusOnMount } from '../engine/a11y.js';
   import Avatar from '../lib/Avatar.svelte';
+  import HowToPlay from '../lib/HowToPlay.svelte';
+  import History from '../lib/History.svelte';
   import * as todEngine from '../games/tod/engine.js';
   import * as spinEngine from '../games/spin/engine.js';
   import * as fsEngine from '../games/fingersmash/engine.js';
@@ -51,6 +53,10 @@
   let lastNudgeSentAt = 0;
   let hadGame = false;
   // Opening a link as someone who isn't in the space yet: ask before joining.
+  let historyOpen = false;
+  let howTo = false; // rules card open
+  let awayLong = false; // partner gone for a few seconds mid-game
+  let awayTimer = null;
   let joinState = null; // null | 'prompt' | 'joining' | 'full' | 'missing' | 'error'
 
   $: partner = room ? partnerOf(room.members, userId) : null;
@@ -108,6 +114,26 @@
     joinState = res.reason === 'room-full' ? 'full' : res.reason === 'no-such-room' ? 'missing' : 'error';
   }
   function backToStart() { location.hash = ''; }
+
+  // First time you see a game on this device, show its rules once.
+  let howToForId = null;
+  $: if (game && game.id !== howToForId) {
+    howToForId = game.id;
+    try {
+      if (localStorage.getItem('bt-howto-' + game.game_type) !== '1') {
+        localStorage.setItem('bt-howto-' + game.game_type, '1');
+        howTo = true;
+      }
+    } catch (e) { /* private mode: skip the card */ }
+  }
+  $: if (!game) howTo = false;
+
+  // Only call it a connection problem after a few seconds — presence blips.
+  $: {
+    const away = !!game && !!partner && partnerStatus === 'away';
+    if (away && !awayTimer && !awayLong) awayTimer = setTimeout(() => { awayLong = true; awayTimer = null; }, 8000);
+    if (!away) { if (awayTimer) { clearTimeout(awayTimer); awayTimer = null; } awayLong = false; }
+  }
 
   // The moment the other person arrives is worth marking.
   let aloneSeen = false;
@@ -455,6 +481,9 @@
     {/if}
   </div>
 {:else}
+  {#if game && awayLong}
+    <div class="offline-banner away" role="status">{partnerName} seems to have dropped off — your game is safe and will pick up when they’re back.</div>
+  {/if}
   {#if !$online}
     <div class="offline-banner" role="status">you're offline — reconnecting… your game will catch up when you're back</div>
   {/if}
@@ -484,6 +513,10 @@
     <div class="menu-scrim" on:click={() => (menuOpen = false)}></div>
     <div class="menu">
       <button class="menu-item" on:click={copyInviteLink}>copy invite link</button>
+      <button class="menu-item" on:click={() => { historyOpen = true; menuOpen = false; }}>past games</button>
+      {#if game}
+        <button class="menu-item" on:click={() => { howTo = true; menuOpen = false; }}>how to play</button>
+      {/if}
       {#if partner}
         <button class="menu-item" on:click={sendNudge}>nudge {partner.display_name}</button>
       {/if}
@@ -495,6 +528,12 @@
       {/if}
       <button class="menu-item danger" on:click={doLeaveRoom}>leave this space</button>
     </div>
+  {/if}
+
+  {#if historyOpen}
+    <History roomId={room.id} {userId} partnerId={partner?.user_id} {partnerName} onClose={() => (historyOpen = false)} />
+  {:else if howTo && game}
+    <HowToPlay type={game.game_type} mode={game.state?.mode || ''} onClose={() => (howTo = false)} />
   {/if}
 
   {#if settingsOpen}
@@ -538,6 +577,9 @@
       {userId}
       partnerId={partner?.user_id}
       {partnerName}
+      myName={selfOf(room.members, userId)?.display_name || 'you'}
+      myAvatar={selfOf(room.members, userId)?.avatar || null}
+      partnerAvatar={partner?.avatar || null}
       onRematch={rematchGame}
       onDone={() => (recap = null)}
     />

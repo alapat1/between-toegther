@@ -4,6 +4,9 @@
   // Implements flows.md §2.2: split-slam choice, heat-shimmer waiting state,
   // flip reveal, pip trace strip, wait-for-both advance (no auto-timer).
   import { makeChoice, bothChosen, markReadyForNext } from './engine.js';
+  import { sfx } from '../../engine/sound.js';
+  import { fly } from 'svelte/transition';
+  import { reducedMotion } from '../../engine/prefs.js';
 
   export let game;        // game_sessions row (state.prompts, state.round, state.pips, state.readyForNext)
   export let userId;
@@ -21,6 +24,9 @@
   $: reveal = bothChosen(moves, round, userId, partnerId);
   $: iAmReady = !!(game.state.readyForNext || {})[userId];
 
+  let lastRevealRound = -1;
+  $: if (reveal && lastRevealRound !== round) { lastRevealRound = round; sfx(reveal.mine === reveal.theirs ? 'match' : 'clash'); }
+
   async function choose(side) {
     if (myChoice) return;
     await makeChoice(game, userId, side);
@@ -34,7 +40,8 @@
   }
 </script>
 
-<div class="wyr">
+{#key round}
+<div class="wyr" in:fly={{ y: $reducedMotion ? 0 : 14, duration: $reducedMotion ? 0 : 260 }}>
   <p class="round-label">round {round + 1} of {game.state.prompts.length}</p>
   <div class="pip-strip" aria-label="round history">
     {#each game.state.pips || [] as pip}
@@ -80,6 +87,7 @@
     </div>
   {/if}
 </div>
+{/key}
 
 <style>
   .round-label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); margin: 0; text-align: center; }

@@ -7,6 +7,7 @@
   export let onAccent = 'var(--on-accent-orange-pop)';
   export let disabled = false;
 
+  import { sfx } from '../engine/sound.js';
   let pressed = false;
 </script>
 
@@ -19,6 +20,7 @@
   on:pointerup={() => (pressed = false)}
   on:pointerleave={() => (pressed = false)}
   on:click
+  on:click={() => sfx('tap')}
 >
   <slot />
 </button>

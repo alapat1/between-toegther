@@ -4,6 +4,8 @@
   // (locked 2026-07-09): DYING, CAUGHT, RESPECT, MERCY.
   import PlateButton from '../../lib/PlateButton.svelte';
   import * as engine from './engine.js';
+  import { fly } from 'svelte/transition';
+  import { reducedMotion } from '../../engine/prefs.js';
 
   export let game;
   export let userId;
@@ -30,7 +32,8 @@
   }
 </script>
 
-<div class="tod">
+{#key s.phase + ":" + s.round}
+<div class="tod" in:fly={{ y: $reducedMotion ? 0 : 14, duration: $reducedMotion ? 0 : 260 }}>
   <div class="meta">
     <span>{s.theme}</span>
     <span>{s.round + 1}/{s.totalRounds}</span>
@@ -81,6 +84,7 @@
     {/if}
   {/if}
 </div>
+{/key}
 
 <style>
   .tod { padding: 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; text-align: center; min-height: 60vh; justify-content: center; }

@@ -125,23 +125,60 @@ export async function leaveRoom(roomId, userId) {
 export function joinPresence(roomId, userId, initialStatus, onPeers, onNudge) {
   let channel = null;
   let currentStatus = initialStatus;
+  let hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
+  // Presence says WHO is connected (and vanishes instantly on a clean exit).
+  // It is deliberately tracked once per connection: re-tracking adds entries
+  // instead of replacing them, which leaves ghost copies behind.
+  //
+  // The realtime server only notices an abruptly-gone phone (lost signal,
+  // killed browser) after ~65s, so liveness + status travel as small
+  // broadcast heartbeats instead. Anyone not heard from in STALE_MS counts
+  // as away — "waiting on them…" never hangs a minute without a reason.
+  const HEARTBEAT_MS = 8000;
+  const STALE_MS = 24000;
+  const heard = {};      // userId -> { status, at }
+  const firstSeen = {};  // userId -> when we first saw their presence entry
+  let lastReported = '';
+
+  const myStatus = () => (hidden ? 'away' : currentStatus);
+
+  function beat() {
+    if (channel) channel.send({ type: 'broadcast', event: 'hb', payload: { from: userId, status: myStatus() } });
+  }
+
+  function computePeers() {
+    const state = channel ? channel.presenceState() : {};
+    const now = Date.now();
+    const peers = {};
+    for (const [key, metas] of Object.entries(state)) {
+      if (key === userId) { peers[key] = myStatus(); continue; }
+      firstSeen[key] = firstSeen[key] || now;
+      const h = heard[key];
+      const lastHeard = h ? h.at : firstSeen[key];
+      if (now - lastHeard < STALE_MS) peers[key] = (h && h.status) || metas[metas.length - 1]?.status || 'lobby';
+    }
+    // forget people who left so a rejoin starts fresh
+    for (const key of Object.keys(firstSeen)) if (!(key in state)) { delete firstSeen[key]; delete heard[key]; }
+    const sig = JSON.stringify(peers);
+    if (sig !== lastReported) { lastReported = sig; onPeers(peers); }
+  }
 
   function subscribe() {
     channel = sb.channel(`presence:${roomId}`, { config: { presence: { key: userId } } });
     channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const peers = {};
-        for (const [key, metas] of Object.entries(state)) {
-          peers[key] = metas[0]?.status || 'lobby';
+      .on('presence', { event: 'sync' }, computePeers)
+      .on('broadcast', { event: 'hb' }, ({ payload }) => {
+        if (payload?.from && payload.from !== userId) {
+          heard[payload.from] = { status: payload.status, at: Date.now() };
+          computePeers();
         }
-        onPeers(peers);
       })
       .on('broadcast', { event: 'nudge' }, ({ payload }) => {
         if (payload?.to === userId && onNudge) onNudge(payload);
       })
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') channel.track({ status: currentStatus });
+        if (status === 'SUBSCRIBED') { channel.track({ status: currentStatus }); beat(); }
       });
   }
 
@@ -151,8 +188,11 @@ export function joinPresence(roomId, userId, initialStatus, onPeers, onNudge) {
   }
 
   subscribe();
+  const heartbeat = setInterval(() => { beat(); computePeers(); }, HEARTBEAT_MS);
+  const staleCheck = setInterval(computePeers, 4000);
   const visibilityHandler = () => {
-    if (document.visibilityState === 'visible') teardownAndResubscribe();
+    hidden = document.visibilityState === 'hidden';
+    if (hidden) beat(); else teardownAndResubscribe();
   };
   document.addEventListener('visibilitychange', visibilityHandler);
   window.addEventListener('online', teardownAndResubscribe);
@@ -160,12 +200,15 @@ export function joinPresence(roomId, userId, initialStatus, onPeers, onNudge) {
   return {
     setStatus(status) {
       currentStatus = status;
-      if (channel) channel.track({ status });
+      beat();
+      computePeers();
     },
     nudge(partnerId) {
       if (channel) channel.send({ type: 'broadcast', event: 'nudge', payload: { to: partnerId, from: userId } });
     },
     unsubscribe() {
+      clearInterval(heartbeat);
+      clearInterval(staleCheck);
       document.removeEventListener('visibilitychange', visibilityHandler);
       window.removeEventListener('online', teardownAndResubscribe);
       if (channel) sb.removeChannel(channel);

@@ -3,6 +3,7 @@
   import PlateButton from '../../lib/PlateButton.svelte';
   import { buzz } from '../../engine/prefs.js';
   import * as engine from './engine.js';
+  import { sfx } from '../../engine/sound.js';
 
   export let game;
   export let userId;
@@ -34,9 +35,20 @@
 
   $: timerPct = roundMs !== null ? Math.max(0, Math.min(100, (roundMs / engine.ROUND_DURATION_MS) * 100)) : 100;
 
+  let lastSecond = null;
+  let lastPhase = null;
+  let lastBlip = 0;
+  $: if (s.phase !== lastPhase) {
+    if (s.phase === 'playing') sfx('go');
+    if (s.phase === 'ended' || (lastPhase === 'playing' && s.phase === 'ready_gate')) sfx('win');
+    lastPhase = s.phase;
+  }
+
   function tick() {
     if (s.phase === 'countdown') {
       countdownMs = engine.msUntilPlay(s);
+      const sec = Math.ceil(countdownMs / 1000);
+      if (sec > 0 && sec !== lastSecond) { lastSecond = sec; sfx('tick'); }
       if (countdownMs <= 0 && !transitioning) {
         transitioning = true;
         engine.beginPlaying(game).finally(() => { transitioning = false; });
@@ -51,6 +63,8 @@
   }
 
   function handleTap() {
+    const now = Date.now();
+    if (now - lastBlip > 70) { lastBlip = now; sfx('blip'); }
     localTaps += 1;
     unflushed += 1;
   }

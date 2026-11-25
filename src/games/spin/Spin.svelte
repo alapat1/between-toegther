@@ -3,6 +3,9 @@
   // recedes to a background chip during 'prompt' instead of leaving the screen.
   import PlateButton from '../../lib/PlateButton.svelte';
   import * as engine from './engine.js';
+  import { sfx } from '../../engine/sound.js';
+  import { fly } from 'svelte/transition';
+  import { reducedMotion } from '../../engine/prefs.js';
 
   export let game;
   export let userId;
@@ -14,6 +17,7 @@
   let spinning = false;
   async function doSpin() {
     if (spinning) return;
+    sfx('spin');
     spinning = true; // visible wheel beat before the result lands for both phones
     await new Promise((r) => setTimeout(r, 1300));
     await engine.spin(game);
@@ -22,7 +26,8 @@
   $: otherUserId = s.spinner_id === userId ? partnerId : userId;
 </script>
 
-<div class="spin">
+{#key s.phase + ":" + s.round}
+<div class="spin" in:fly={{ y: $reducedMotion ? 0 : 14, duration: $reducedMotion ? 0 : 260 }}>
   <div class="meta">
     <span>{s.scores?.[userId] || 0} – {s.scores?.[partnerId] || 0}</span>
     <span>{s.round + 1}/{s.total_rounds}</span>
@@ -44,9 +49,12 @@
     <p class="prompt-card">{s.prompt}</p>
     {#if iAmSpinner}
       {#if !s.spinner_done}
-        <PlateButton accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" on:click={() => engine.markSpinnerDone(game)}>
-          i did it
-        </PlateButton>
+        <div class="row">
+          <PlateButton accent="var(--surface-2)" onAccent="var(--text-soft)" on:click={() => engine.skipPrompt(game, otherUserId)}>skip this one</PlateButton>
+          <PlateButton accent="var(--accent-freesia)" onAccent="var(--on-accent-freesia)" on:click={() => engine.markSpinnerDone(game)}>
+            i did it
+          </PlateButton>
+        </div>
       {:else}
         <p class="status" role="status">waiting on {partnerName}'s call…</p>
       {/if}
@@ -61,6 +69,7 @@
     {/if}
   {/if}
 </div>
+{/key}
 
 <style>
   .spin { padding: 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; text-align: center; min-height: 60vh; justify-content: center; }
