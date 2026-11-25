@@ -11,8 +11,7 @@ export const STYLES = [
   { id: 'lo', label: 'portrait' },
   { id: 'no', label: 'sketch' },
   { id: 'op', label: 'peeps' },
-  { id: 'px', label: 'pixel' },
-  { id: 'th', label: 'thumbs' }
+  { id: 'px', label: 'pixel' }
 ];
 
 /**
@@ -64,5 +63,5 @@ export function parseAvatar(avatar, fallbackId = '') {
     if (emojiIdx >= 0 && colorIdx >= 0 && colorIdx < COLORS.length) return { kind: 'emoji', emoji: EMOJIS[emojiIdx], ...COLORS[colorIdx] };
   }
   const seed = String(fallbackId || 'guest').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'guest';
-  return { kind: 'db', style: 'th', seed };
+  return { kind: 'db', style: 'lo', seed };
 }

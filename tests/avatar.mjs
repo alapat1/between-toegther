@@ -12,8 +12,8 @@ await t('new format round-trips and renders an SVG data URI', () => {
   assert.ok(r.render(a.style, a.seed).startsWith('data:image/svg+xml'));
 });
 await t('same seed -> identical image; different seed -> different image', () => {
-  assert.equal(r.render('th', 'abc12345'), r.render('th', 'abc12345'));
-  assert.notEqual(r.render('th', 'abc12345'), r.render('th', 'zzz99999'));
+  assert.equal(r.render('lo', 'abc12345'), r.render('lo', 'abc12345'));
+  assert.notEqual(r.render('lo', 'abc12345'), r.render('lo', 'zzz99999'));
 });
 await t('every offered style renders', () => { for (const s of STYLES) assert.ok(r.render(s.id, 'seedseed').length > 200, s.id); });
 await t('stored value fits the profiles.avatar column (<= 24 chars)', () => { for (let i = 0; i < 200; i++) assert.ok(randomAvatar().length <= 24); });

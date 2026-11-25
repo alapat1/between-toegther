@@ -15,7 +15,6 @@
     "@dicebear/notionists": "^9.4.2",
     "@dicebear/open-peeps": "^9.4.2",
     "@dicebear/pixel-art": "^9.4.2",
-    "@dicebear/thumbs": "^9.4.2",
     "@supabase/supabase-js": "^2.45.0",
     "qrcode-generator": "^1.4.4"
   },
